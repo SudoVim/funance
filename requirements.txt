@@ -1,6 +1,7 @@
 Django>=4.0.4,<5                # Django web framework
 djangorestframework>=3.13.1,<4  # REST functionality for Django
 celery>=5.2.7,<6                # Task queue
+psycopg2>=2.9.3,<3              # postgres library
 
 pip-check-updates       # library for comparing installed versions to those in
                         # pypi

@@ -14,7 +14,7 @@ services:
     ports:
       - "8005:8005"
   db:
-    image: postgres:11
+    image: postgres:14
     environment:
       POSTGRES_PASSWORD: password
     volumes:
@@ -29,10 +29,7 @@ services:
     volumes:
       - .:/code
   elastic:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8
-    ports:
-      - "9200:9200"
-      - "9300:9300"
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.2.3
     environment:
       - discovery.type=single-node
     volumes:
