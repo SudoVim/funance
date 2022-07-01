@@ -1,0 +1,21 @@
+# Tickers vs Funds
+
+The purpose of this project for me is to create "funds" to track the investment
+activity of people so that others can mimic it. In addition, I'd like to be
+able to provide insights so that people can make smarter investment decisions.
+
+## Tickers
+
+Tickers are just the ticker itself. It'll be used to download different
+resolutions of historic OHLC data. Maybe at some point, it'll deal with raw
+transactions, but I bet that data is expensive.
+
+## Funds
+
+Funds are a collection of purchases - ticker, price, time pairs that can be
+used to resurrect the health of the fund. You'll also be able to see its growth
+over time.
+
+## Fund Purchases
+
+Each fund purchase will be associated with a fund itself
