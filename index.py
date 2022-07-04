@@ -8,24 +8,25 @@ import argparse
 
 from funance.elastic import client
 
+
 def main(argv):
-    """ main function """
+    """main function"""
     parser = argparse.ArgumentParser(
         description="index database(s) for stock data",
     )
     args = parser.parse_args(argv)
 
     c = client()
-    for index in ['funance-ohlc']:
+    for index in ["funance-ohlc"]:
         if not c.indices.exists(index):
             c.indices.create(index=index)
 
     c.indices.put_mapping(
-        index='funance-ohlc',
+        index="funance-ohlc",
         body={
-            'properties': {
-                'doc.date': {
-                    'type': 'date',
+            "properties": {
+                "doc.date": {
+                    "type": "date",
                 },
             },
         },
@@ -33,5 +34,6 @@ def main(argv):
 
     return 0
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

@@ -10,26 +10,28 @@ from accounts.models import Account
 
 from .api import LoginAPI, LogoutAPI, LogoutAllAPI
 
+
 def mock_login():
     def fcn(request, user):
         request.user = user
-    return unittest.mock.patch('accounts.api.login', autospec=True, side_effect=fcn)
+
+    return unittest.mock.patch("accounts.api.login", autospec=True, side_effect=fcn)
+
 
 class BaseAccountTestCase(TestCase):
-
     def setUp(self):
         self.account = Account.objects.create(
-            username='GGreggs',
-            first_name='Greg',
-            last_name='Greggs',
-            email='ggreggs@example.com',
+            username="GGreggs",
+            first_name="Greg",
+            last_name="Greggs",
+            email="ggreggs@example.com",
         )
 
-        self.account.set_password('password')
+        self.account.set_password("password")
         self.account.save()
 
-class LoginTestCase(BaseAccountTestCase):
 
+class LoginTestCase(BaseAccountTestCase):
     def setUp(self):
         super().setUp()
         self.factory = APIRequestFactory()
@@ -41,39 +43,50 @@ class LoginTestCase(BaseAccountTestCase):
         self.assertEqual(400, response.status_code)
         self.assertEqual(
             {
-                'password': [ErrorDetail('This field is required.', code='required')],
-                'username': [ErrorDetail('This field is required.', code='required')],
+                "password": [ErrorDetail("This field is required.", code="required")],
+                "username": [ErrorDetail("This field is required.", code="required")],
             },
             response.data,
         )
 
     def test_login_failure(self):
-        request = self.factory.post("/api/v1/accounts/login", {
-            'username': 'GGreggs',
-            'password': 'invalid',
-        })
+        request = self.factory.post(
+            "/api/v1/accounts/login",
+            {
+                "username": "GGreggs",
+                "password": "invalid",
+            },
+        )
         response = LoginAPI.as_view()(request)
         self.assertEqual(400, response.status_code)
         self.assertEqual(
             {
-                'non_field_errors': [ErrorDetail('Unable to log in with provided credentials.', code='authorization')],
+                "non_field_errors": [
+                    ErrorDetail(
+                        "Unable to log in with provided credentials.",
+                        code="authorization",
+                    )
+                ],
             },
             response.data,
         )
 
     @mock_login()
     def test_login_success(self, fake_login):
-        request = self.factory.post("/api/v1/accounts/login", {
-            'username': 'GGreggs',
-            'password': 'password',
-        })
+        request = self.factory.post(
+            "/api/v1/accounts/login",
+            {
+                "username": "GGreggs",
+                "password": "password",
+            },
+        )
         response = LoginAPI.as_view()(request)
         self.assertEqual(200, response.status_code)
 
         fake_login.assert_called_once()
 
-class LogoutTestCase(BaseAccountTestCase):
 
+class LogoutTestCase(BaseAccountTestCase):
     def setUp(self):
         super().setUp()
         self.factory = APIRequestFactory()
@@ -85,16 +98,18 @@ class LogoutTestCase(BaseAccountTestCase):
         self.assertEqual(401, response.status_code)
         self.assertEqual(
             {
-                'detail': ErrorDetail(
-                    'Authentication credentials were not provided.',
-                    code='not_authenticated',
+                "detail": ErrorDetail(
+                    "Authentication credentials were not provided.",
+                    code="not_authenticated",
                 ),
             },
             response.data,
         )
 
     def test_logout_success(self):
-        instance, _ = AuthToken.objects.create(self.account, datetime.timedelta(hours=10))
+        instance, _ = AuthToken.objects.create(
+            self.account, datetime.timedelta(hours=10)
+        )
         request = self.factory.post("/api/v1/accounts/logout", _auth=instance)
         force_authenticate(request, self.account, instance)
 
@@ -102,8 +117,8 @@ class LogoutTestCase(BaseAccountTestCase):
         self.assertEqual(204, response.status_code)
         self.assertEqual(0, AuthToken.objects.count())
 
-class LogoutAllTestCase(BaseAccountTestCase):
 
+class LogoutAllTestCase(BaseAccountTestCase):
     def setUp(self):
         super().setUp()
         self.factory = APIRequestFactory()
@@ -115,16 +130,18 @@ class LogoutAllTestCase(BaseAccountTestCase):
         self.assertEqual(401, response.status_code)
         self.assertEqual(
             {
-                'detail': ErrorDetail(
-                    'Authentication credentials were not provided.',
-                    code='not_authenticated',
+                "detail": ErrorDetail(
+                    "Authentication credentials were not provided.",
+                    code="not_authenticated",
                 ),
             },
             response.data,
         )
 
     def test_logoutall_success(self):
-        instance, _ = AuthToken.objects.create(self.account, datetime.timedelta(hours=10))
+        instance, _ = AuthToken.objects.create(
+            self.account, datetime.timedelta(hours=10)
+        )
 
         # Make a couple more
         AuthToken.objects.create(self.account, datetime.timedelta(hours=10))
