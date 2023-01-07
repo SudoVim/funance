@@ -1,5 +1,6 @@
 Django>=4.0.4,<5                # Django web framework
 djangorestframework>=3.13.1,<4  # REST functionality for Django
+django-cors-headers>=3.13.0,<4  # Support CORS
 celery>=5.2.7,<6                # Task queue
 psycopg2>=2.9.3,<3              # postgres library
 python-dateutil>=2.8.2,<3       # parse arbitrarily-formatted dates
