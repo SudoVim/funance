@@ -27,6 +27,10 @@ class Fund(models.Model):
         max_length=2, choices=Currency.choices, default=Currency.USD
     )
 
+    @property
+    def currency_label(self):
+        return self.Currency(self.currency).label
+
     #: The amount of cash that's available for purchase
     available_cash = models.DecimalField(max_digits=32, decimal_places=4)
 
@@ -79,9 +83,10 @@ class FundPurchase(models.Model):
         related_name="fund_purchases",
     )
 
-    #: The quantity of the security to buy. I gave this four decimal places in
-    #  case the security can be bought in fractions.
-    quantity = models.DecimalField(max_digits=32, decimal_places=4)
+    #: The quantity of the security to buy. I gave this eight decimal places in
+    #  case the security can be bought in fractions. Bitcoin, for instance, can
+    #  be bought in hundred millionths.
+    quantity = models.DecimalField(max_digits=32, decimal_places=8)
 
     #: The price of the security at purchase time.
     price = models.DecimalField(max_digits=32, decimal_places=4)
