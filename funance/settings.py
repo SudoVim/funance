@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "accounts",
     "tickers",
     "funds",
+    "holdings",
 ]
 
 AUTH_USER_MODEL = "accounts.Account"

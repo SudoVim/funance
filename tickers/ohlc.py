@@ -2,12 +2,12 @@ import math
 import datetime
 import itertools
 
+import pytz
 import dateutil.parser
 import elasticsearch.helpers
 import numpy as np
 import pandas as pd
-import pandas_datareader
-import pandas_datareader.data as web
+import yfinance as yf
 
 from funance.elastic import client
 
@@ -36,7 +36,7 @@ class TickerOHLC(object):
         latest = self.latest()
         if latest is not None:
             latest_date = latest["_source"]["doc"]["date"]
-            now_date = datetime.datetime.now()
+            now_date = pytz.utc.localize(datetime.datetime.utcnow())
             latest_delta = now_date - latest_date
 
             # We already have today's data. Just continue.
@@ -52,7 +52,8 @@ class TickerOHLC(object):
             from_date = latest_date + datetime.timedelta(days=1)
 
         try:
-            df = web.DataReader(self.symbol, "yahoo", from_date, today)
+            df = yf.Ticker(self.symbol).history(start=from_date, end=today)
+            df["Adj Close"] = df["Close"]
 
         except (KeyError, pandas_datareader._utils.RemoteDataError):
             return
