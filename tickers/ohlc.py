@@ -53,7 +53,7 @@ class TickerOHLC(object):
 
         try:
             df = yf.Ticker(self.symbol).history(start=from_date, end=today)
-            df['Adj Close'] = df['Close']
+            df["Adj Close"] = df["Close"]
 
         except (KeyError, pandas_datareader._utils.RemoteDataError):
             return
