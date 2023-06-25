@@ -63,8 +63,16 @@ class HoldingAccountPurchase(models.Model):
     #  be bought in hundred millionths.
     quantity = models.DecimalField(max_digits=32, decimal_places=8)
 
+    @property
+    def quantity_value(self):
+        return float(self.quantity)
+
     #: The price of the security at purchase time.
     price = models.DecimalField(max_digits=32, decimal_places=4)
+
+    @property
+    def price_value(self):
+        return float(self.price)
 
     created_at = models.DateTimeField(auto_now_add=True)
     purchased_at = models.DateTimeField()
