@@ -5,9 +5,10 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 from rest_framework.exceptions import ErrorDetail
 from knox.models import AuthToken
 
+from tickers.models import Ticker
 from accounts.models import Account
 
-from .api import HoldingAccountViewSet
+from .api import HoldingAccountViewSet, HoldingAccountPurchaseViewSet
 from .models import HoldingAccount
 
 
@@ -201,4 +202,111 @@ class HoldingAccountTestCase(BaseHoldingAccountTestCase):
                 "available_cash": 0,
             },
             dict(response.data),
+        )
+
+    def test_create_purchase_create_ticker(self):
+        request = self.factory.post(
+            f"/api/v1/holding_accounts/{self.ha.pk}/create_purchase",
+            {
+                "ticker": "AAPL",
+                "quantity": 5,
+                "price": 120,
+                "purchased_at": datetime.datetime(year=2023, day=24, month=6),
+            },
+        )
+        force_authenticate(request, self.account, self.token)
+        response = HoldingAccountViewSet.as_view({"post": "create_purchase"})(
+            request, pk=self.ha.pk
+        )
+        purchase = self.ha.purchases.first()
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            {
+                "holding_account": f"http://testserver/api/v1/holding_accounts/{self.ha.pk}/",
+                "id": str(purchase.id),
+                "price": 120.0,
+                "quantity": 5.0,
+                "purchased_at": "2023-06-24T00:00:00Z",
+                "ticker": {
+                    "symbol": "AAPL",
+                },
+            },
+            dict(response.data),
+        )
+
+    def test_create_purchase(self):
+        ticker = Ticker.objects.create(symbol="AAPL")
+        request = self.factory.post(
+            f"/api/v1/holding_accounts/{self.ha.pk}/create_purchase",
+            {
+                "ticker": "AAPL",
+                "quantity": 5,
+                "price": 120,
+                "purchased_at": datetime.datetime(year=2023, day=24, month=6),
+            },
+        )
+        force_authenticate(request, self.account, self.token)
+        response = HoldingAccountViewSet.as_view({"post": "create_purchase"})(
+            request, pk=self.ha.pk
+        )
+        purchase = self.ha.purchases.first()
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            {
+                "holding_account": f"http://testserver/api/v1/holding_accounts/{self.ha.pk}/",
+                "id": str(purchase.id),
+                "price": 120.0,
+                "quantity": 5.0,
+                "purchased_at": "2023-06-24T00:00:00Z",
+                "ticker": {
+                    "symbol": "AAPL",
+                },
+            },
+            dict(response.data),
+        )
+
+
+class BaseHoldingAccountPurchaseTestCase(BaseHoldingAccountTestCase):
+    def setUp(self):
+        super().setUp()
+
+        self.ha = HoldingAccount.objects.create(
+            owner=self.account,
+            name="My Holding Account",
+        )
+
+
+class HoldingAccountPurchasesTestCase(BaseHoldingAccountPurchaseTestCase):
+    def setUp(self):
+        super().setUp()
+        self.factory = APIRequestFactory()
+        self.maxDiff = None
+
+    def test_holding_account_purchases_unauthed(self):
+        request = self.factory.get("/api/v1/holding_account_purchases")
+        response = HoldingAccountPurchaseViewSet.as_view({"get": "list"})(request)
+        self.assertEqual(401, response.status_code)
+        self.assertEqual(
+            {
+                "detail": ErrorDetail(
+                    "Authentication credentials were not provided.",
+                    code="not_authenticated",
+                ),
+            },
+            response.data,
+        )
+
+    def test_holding_account_purchases_empty(self):
+        request = self.factory.get("/api/v1/holding_account_purchases")
+        force_authenticate(request, self.account, self.token)
+        response = HoldingAccountPurchaseViewSet.as_view({"get": "list"})(request)
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            {
+                "count": 0,
+                "next": None,
+                "previous": None,
+                "results": [],
+            },
+            response.data,
         )
