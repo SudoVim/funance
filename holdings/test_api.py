@@ -1,3 +1,4 @@
+import pytz
 import datetime
 
 from django.test import TestCase
@@ -310,3 +311,88 @@ class HoldingAccountPurchasesTestCase(BaseHoldingAccountPurchaseTestCase):
             },
             response.data,
         )
+
+    def test_holding_account_purchases(self):
+        ticker = Ticker.objects.create(symbol="AAPL")
+        purchase = self.ha.purchases.create(
+            ticker=ticker,
+            price=120,
+            quantity=5,
+            purchased_at=pytz.utc.localize(
+                datetime.datetime(year=2023, day=24, month=6)
+            ),
+        )
+        request = self.factory.get("/api/v1/holding_account_purchases")
+        force_authenticate(request, self.account, self.token)
+        response = HoldingAccountPurchaseViewSet.as_view({"get": "list"})(request)
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            {
+                "count": 1,
+                "next": None,
+                "previous": None,
+                "results": [
+                    {
+                        "holding_account": f"http://testserver/api/v1/holding_accounts/{self.ha.pk}/",
+                        "id": str(purchase.id),
+                        "price": 120.0,
+                        "quantity": 5.0,
+                        "purchased_at": "2023-06-24T00:00:00Z",
+                        "ticker": {
+                            "symbol": "AAPL",
+                        },
+                    },
+                ],
+            },
+            response.data,
+        )
+
+    def test_holding_account_purchase(self):
+        ticker = Ticker.objects.create(symbol="AAPL")
+        purchase = self.ha.purchases.create(
+            ticker=ticker,
+            price=120,
+            quantity=5,
+            purchased_at=pytz.utc.localize(
+                datetime.datetime(year=2023, day=24, month=6)
+            ),
+        )
+        request = self.factory.get(f"/api/v1/holding_account_purchases/{purchase.pk}")
+        force_authenticate(request, self.account, self.token)
+        response = HoldingAccountPurchaseViewSet.as_view({"get": "retrieve"})(
+            request, pk=purchase.pk
+        )
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            {
+                "holding_account": f"http://testserver/api/v1/holding_accounts/{self.ha.pk}/",
+                "id": str(purchase.id),
+                "price": 120.0,
+                "quantity": 5.0,
+                "purchased_at": "2023-06-24T00:00:00Z",
+                "ticker": {
+                    "symbol": "AAPL",
+                },
+            },
+            response.data,
+        )
+
+    def test_holding_account_purchase_delete(self):
+        ticker = Ticker.objects.create(symbol="AAPL")
+        purchase = self.ha.purchases.create(
+            ticker=ticker,
+            price=120,
+            quantity=5,
+            purchased_at=pytz.utc.localize(
+                datetime.datetime(year=2023, day=24, month=6)
+            ),
+        )
+        request = self.factory.delete(
+            f"/api/v1/holding_account_purchases/{purchase.pk}"
+        )
+        force_authenticate(request, self.account, self.token)
+        response = HoldingAccountPurchaseViewSet.as_view({"delete": "destroy"})(
+            request, pk=purchase.pk
+        )
+        self.assertEqual(204, response.status_code)
+        self.assertEqual(None, response.data)
