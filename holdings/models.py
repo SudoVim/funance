@@ -32,7 +32,11 @@ class HoldingAccount(models.Model):
         return self.Currency(self.currency).label
 
     #: The amount of cash that's available for purchase
-    available_cash = models.DecimalField(max_digits=32, decimal_places=4)
+    available_cash = models.DecimalField(max_digits=32, decimal_places=4, default=0)
+
+    @property
+    def available_cash_value(self):
+        return int(self.available_cash)
 
 
 class HoldingAccountPurchase(models.Model):

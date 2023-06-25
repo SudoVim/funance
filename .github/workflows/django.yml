@@ -46,5 +46,8 @@ jobs:
     - name: Check formatting
       run: git ls-files | grep "\.py$" | grep -v "/migrations/" | xargs python -m black --check
 
+    - name: Check migrations
+      run: python manage.py makemigrations --check
+
     - name: Run Tests
       run: python manage.py test --noinput
