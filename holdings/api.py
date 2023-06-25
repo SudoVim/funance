@@ -54,7 +54,6 @@ class HoldingAccountViewSet(
 
 
 class HoldingAccountPurchaseViewSet(
-    mixins.CreateModelMixin,
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
     mixins.DestroyModelMixin,
