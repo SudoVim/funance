@@ -19,7 +19,7 @@ class HoldingAccountViewSet(
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return self.request.user.holding_accounts.order_by('name').all()
+        return self.request.user.holding_accounts.order_by("name").all()
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)

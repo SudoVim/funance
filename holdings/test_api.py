@@ -32,11 +32,14 @@ class HoldingAccountsTestCase(BaseHoldingAccountTestCase):
 
     def test_account_holdings_unauthed(self):
         request = self.factory.get("/api/v1/holding_accounts")
-        response = HoldingAccountViewSet.as_view({'get': 'list'})(request)
+        response = HoldingAccountViewSet.as_view({"get": "list"})(request)
         self.assertEqual(401, response.status_code)
         self.assertEqual(
             {
-                "detail": ErrorDetail("Authentication credentials were not provided.", code="not_authenticated"),
+                "detail": ErrorDetail(
+                    "Authentication credentials were not provided.",
+                    code="not_authenticated",
+                ),
             },
             response.data,
         )
@@ -44,14 +47,14 @@ class HoldingAccountsTestCase(BaseHoldingAccountTestCase):
     def test_account_holdings_empty(self):
         request = self.factory.get("/api/v1/holding_accounts")
         force_authenticate(request, self.account, self.token)
-        response = HoldingAccountViewSet.as_view({'get': 'list'})(request)
+        response = HoldingAccountViewSet.as_view({"get": "list"})(request)
         self.assertEqual(200, response.status_code)
         self.assertEqual(
             {
-                'count': 0,
-                'next': None,
-                'previous': None,
-                'results': [],
+                "count": 0,
+                "next": None,
+                "previous": None,
+                "results": [],
             },
             response.data,
         )
@@ -59,24 +62,24 @@ class HoldingAccountsTestCase(BaseHoldingAccountTestCase):
     def test_account_holdings_with_holding(self):
         ha = HoldingAccount.objects.create(
             owner=self.account,
-            name='My Holding Account',
+            name="My Holding Account",
             currency=HoldingAccount.Currency.USD,
         )
         request = self.factory.get("/api/v1/holding_accounts")
         force_authenticate(request, self.account, self.token)
-        response = HoldingAccountViewSet.as_view({'get': 'list'})(request)
+        response = HoldingAccountViewSet.as_view({"get": "list"})(request)
         self.assertEqual(200, response.status_code)
         self.assertEqual(
             {
-                'count': 1,
-                'next': None,
-                'previous': None,
-                'results': [
+                "count": 1,
+                "next": None,
+                "previous": None,
+                "results": [
                     {
-                        'id': str(ha.id),
-                        'name': 'My Holding Account',
-                        'currency': 'USD',
-                        'available_cash': 0,
+                        "id": str(ha.id),
+                        "name": "My Holding Account",
+                        "currency": "USD",
+                        "available_cash": 0,
                     },
                 ],
             },
@@ -86,7 +89,7 @@ class HoldingAccountsTestCase(BaseHoldingAccountTestCase):
     def test_account_holdings_other_user(self):
         ha = HoldingAccount.objects.create(
             owner=self.account,
-            name='My Holding Account',
+            name="My Holding Account",
             currency=HoldingAccount.Currency.USD,
         )
         other_account = Account.objects.create(
@@ -100,34 +103,38 @@ class HoldingAccountsTestCase(BaseHoldingAccountTestCase):
         )
         request = self.factory.get("/api/v1/holding_accounts")
         force_authenticate(request, other_account, other_token)
-        response = HoldingAccountViewSet.as_view({'get': 'list'})(request)
+        response = HoldingAccountViewSet.as_view({"get": "list"})(request)
         self.assertEqual(200, response.status_code)
         self.assertEqual(
             {
-                'count': 0,
-                'next': None,
-                'previous': None,
-                'results': [],
+                "count": 0,
+                "next": None,
+                "previous": None,
+                "results": [],
             },
             response.data,
         )
 
     def test_create(self):
-        request = self.factory.post("/api/v1/holding_accounts", {
-            'name': 'My New Account',
-        })
+        request = self.factory.post(
+            "/api/v1/holding_accounts",
+            {
+                "name": "My New Account",
+            },
+        )
         force_authenticate(request, self.account, self.token)
-        response = HoldingAccountViewSet.as_view({'post': 'create'})(request)
+        response = HoldingAccountViewSet.as_view({"post": "create"})(request)
         self.assertEqual(201, response.status_code)
         self.assertEqual(
             {
-                'id': response.data['id'],
-                'name': 'My New Account',
-                'currency': 'USD',
-                'available_cash': 0,
+                "id": response.data["id"],
+                "name": "My New Account",
+                "currency": "USD",
+                "available_cash": 0,
             },
             dict(response.data),
         )
+
 
 class HoldingAccountTestCase(BaseHoldingAccountTestCase):
     def setUp(self):
@@ -137,17 +144,22 @@ class HoldingAccountTestCase(BaseHoldingAccountTestCase):
 
         self.ha = HoldingAccount.objects.create(
             owner=self.account,
-            name='My Holding Account',
+            name="My Holding Account",
             currency=HoldingAccount.Currency.USD,
         )
 
     def test_get_unauthed(self):
         request = self.factory.get(f"/api/v1/holding_accounts/{self.ha.pk}")
-        response = HoldingAccountViewSet.as_view({'get': 'retrieve'})(request, self.ha.pk)
+        response = HoldingAccountViewSet.as_view({"get": "retrieve"})(
+            request, self.ha.pk
+        )
         self.assertEqual(401, response.status_code)
         self.assertEqual(
             {
-                "detail": ErrorDetail("Authentication credentials were not provided.", code="not_authenticated"),
+                "detail": ErrorDetail(
+                    "Authentication credentials were not provided.",
+                    code="not_authenticated",
+                ),
             },
             response.data,
         )
@@ -155,31 +167,38 @@ class HoldingAccountTestCase(BaseHoldingAccountTestCase):
     def test_get(self):
         request = self.factory.get(f"/api/v1/holding_accounts/{self.ha.pk}")
         force_authenticate(request, self.account, self.token)
-        response = HoldingAccountViewSet.as_view({'get': 'retrieve'})(request, pk=self.ha.pk)
+        response = HoldingAccountViewSet.as_view({"get": "retrieve"})(
+            request, pk=self.ha.pk
+        )
         self.assertEqual(200, response.status_code)
         self.assertEqual(
             {
-                'id': str(self.ha.id),
-                'name': 'My Holding Account',
-                'currency': 'USD',
-                'available_cash': 0,
+                "id": str(self.ha.id),
+                "name": "My Holding Account",
+                "currency": "USD",
+                "available_cash": 0,
             },
             response.data,
         )
 
     def test_update(self):
-        request = self.factory.post(f"/api/v1/holding_accounts/{self.ha.pk}", {
-            'name': 'New name',
-        })
+        request = self.factory.post(
+            f"/api/v1/holding_accounts/{self.ha.pk}",
+            {
+                "name": "New name",
+            },
+        )
         force_authenticate(request, self.account, self.token)
-        response = HoldingAccountViewSet.as_view({'post': 'partial_update'})(request, pk=self.ha.pk)
+        response = HoldingAccountViewSet.as_view({"post": "partial_update"})(
+            request, pk=self.ha.pk
+        )
         self.assertEqual(200, response.status_code)
         self.assertEqual(
             {
-                'id': str(self.ha.id),
-                'name': 'New name',
-                'currency': 'USD',
-                'available_cash': 0,
+                "id": str(self.ha.id),
+                "name": "New name",
+                "currency": "USD",
+                "available_cash": 0,
             },
             dict(response.data),
         )
