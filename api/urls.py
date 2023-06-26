@@ -9,10 +9,10 @@ funds.api.register_routes(router)
 holdings.api.register_routes(router)
 
 urlpatterns_v1 = [
-    path("/", include(router.urls)),
-    path("accounts", include("accounts.api")),
+    path("", include(router.urls)),
+    path("accounts/", include("accounts.api")),
 ]
 
 urlpatterns = [
-    path("v1", include(urlpatterns_v1)),
+    path("v1/", include(urlpatterns_v1)),
 ]
