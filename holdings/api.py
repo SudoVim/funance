@@ -11,6 +11,7 @@ from .serializers import (
     HoldingAccountSerializer,
     HoldingAccountPurchaseSerializer,
     CreateHoldingAccountPurchaseSerializer,
+    HoldingAccountPurchaseRequestSerializer,
 )
 
 
@@ -74,6 +75,22 @@ class HoldingAccountPurchaseViewSet(
             .order_by("-purchased_at")
             .all()
         )
+
+    def filter_queryset(self, queryset):
+        serializer = HoldingAccountPurchaseRequestSerializer(
+            data=self.request.query_params
+        )
+        serializer.is_valid()
+
+        holding_account_pk = serializer.validated_data.get("holding_account")
+        if holding_account_pk:
+            queryset = queryset.filter(holding_account__pk=holding_account_pk)
+
+        ticker_symbol = serializer.validated_data.get("ticker")
+        if ticker_symbol:
+            queryset = queryset.filter(ticker__pk=ticker_symbol)
+
+        return queryset
 
 
 def register_routes(router: BaseRouter):
