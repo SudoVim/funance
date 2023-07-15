@@ -75,6 +75,7 @@ SECURE_REFERRER_POLICY = "no-referrer-when-downgrade"
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:3001",
+    "http://localhost:5173",
 ]
 
 ROOT_URLCONF = "funance.urls"

@@ -36,6 +36,20 @@ class CreateHoldingAccountPurchaseSerializer(serializers.ModelSerializer):
         ]
 
 
+class HoldingAccountPurchaseRequestSerializer(serializers.ModelSerializer):
+    holding_account = serializers.UUIDField(required=False)
+    ticker = serializers.CharField(
+        max_length=Ticker.symbol.field.max_length, required=False
+    )
+
+    class Meta:
+        model = HoldingAccountPurchase
+        fields = [
+            "holding_account",
+            "ticker",
+        ]
+
+
 class HoldingAccountPurchaseSerializer(serializers.HyperlinkedModelSerializer):
     ticker = TickerSerializer()
 

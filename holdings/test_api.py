@@ -347,6 +347,105 @@ class HoldingAccountPurchasesTestCase(BaseHoldingAccountPurchaseTestCase):
             response.data,
         )
 
+    def test_holding_account_purchases_filter_account(self):
+        ticker = Ticker.objects.create(symbol="AAPL")
+        purchase = self.ha.purchases.create(
+            ticker=ticker,
+            price=120,
+            quantity=5,
+            purchased_at=pytz.utc.localize(
+                datetime.datetime(year=2023, day=24, month=6)
+            ),
+        )
+
+        other_ha = HoldingAccount.objects.create(
+            owner=self.account,
+            name="My Other Holding Account",
+        )
+        other_purchase = other_ha.purchases.create(
+            ticker=ticker,
+            price=110,
+            quantity=5,
+            purchased_at=pytz.utc.localize(
+                datetime.datetime(year=2022, day=24, month=6)
+            ),
+        )
+
+        request = self.factory.get(
+            f"/api/v1/holding_account_purchases?holding_account={other_ha.pk}"
+        )
+        force_authenticate(request, self.account, self.token)
+        response = HoldingAccountPurchaseViewSet.as_view({"get": "list"})(request)
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            {
+                "count": 1,
+                "next": None,
+                "previous": None,
+                "results": [
+                    {
+                        "holding_account": f"http://testserver/api/v1/holding_accounts/{other_ha.pk}/",
+                        "id": str(other_purchase.id),
+                        "price": 110.0,
+                        "quantity": 5.0,
+                        "purchased_at": "2022-06-24T00:00:00Z",
+                        "ticker": {
+                            "symbol": "AAPL",
+                        },
+                    },
+                ],
+            },
+            response.data,
+        )
+
+    def test_holding_account_purchases_filter_ticker(self):
+        ticker = Ticker.objects.create(symbol="AAPL")
+        purchase = self.ha.purchases.create(
+            ticker=ticker,
+            price=120,
+            quantity=5,
+            purchased_at=pytz.utc.localize(
+                datetime.datetime(year=2023, day=24, month=6)
+            ),
+        )
+
+        other_ticker = Ticker.objects.create(symbol="MSFT")
+        purchase = self.ha.purchases.create(
+            ticker=other_ticker,
+            price=120,
+            quantity=5,
+            purchased_at=pytz.utc.localize(
+                datetime.datetime(year=2023, day=24, month=6)
+            ),
+        )
+
+        request = self.factory.get(
+            f"/api/v1/holding_account_purchases?ticker={other_ticker.pk}"
+        )
+        force_authenticate(request, self.account, self.token)
+        response = HoldingAccountPurchaseViewSet.as_view({"get": "list"})(request)
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            {
+                "count": 1,
+                "next": None,
+                "previous": None,
+                "results": [
+                    {
+                        "holding_account": f"http://testserver/api/v1/holding_accounts/{self.ha.pk}/",
+                        "id": str(purchase.id),
+                        "price": 120.0,
+                        "quantity": 5.0,
+                        "purchased_at": "2023-06-24T00:00:00Z",
+                        "ticker": {
+                            "symbol": "MSFT",
+                        },
+                    },
+                ],
+            },
+            response.data,
+        )
+
     def test_holding_account_purchase(self):
         ticker = Ticker.objects.create(symbol="AAPL")
         purchase = self.ha.purchases.create(
