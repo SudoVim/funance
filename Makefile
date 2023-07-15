@@ -20,6 +20,10 @@ stop:
 shell:
 	@$(DOCKER_COMPOSE) run web bash
 
+.PHONY: test
+test:
+	@$(DOCKER_COMPOSE) run web ./manage.py test
+
 .PHONY: format
 format:
 	@git ls-files | grep "\.py$ " | grep -v "/migrations/" | xargs $(DOCKER_COMPOSE) run web black
