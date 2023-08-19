@@ -8,12 +8,7 @@ class FundSerializer(serializers.HyperlinkedModelSerializer):
         model = Fund
         fields = [
             "id",
-            "owner",
             "name",
-            "currency",
-            "available_cash",
+            "shares",
         ]
-        read_only_fields = ["id", "owner"]
-        extra_kwargs = {
-            "currency": {"source": "currency_label"},
-        }
+        read_only_fields = ["id"]
