@@ -6,6 +6,7 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 from rest_framework.exceptions import ErrorDetail
 from knox.models import AuthToken
 
+from tickers.models import Ticker
 from accounts.models import Account
 
 from .api import FundViewSet
@@ -77,6 +78,8 @@ class FundsTestCase(BaseFundTestCase):
                 "id": response.data["id"],
                 "name": "Fund Name",
                 "shares": 1000,
+                "created_at": response.data["created_at"],
+                "updated_at": response.data["updated_at"],
             },
             response.data,
         )
@@ -97,6 +100,8 @@ class FundsTestCase(BaseFundTestCase):
                 "id": response.data["id"],
                 "name": "Fund Name",
                 "shares": 2000,
+                "created_at": response.data["created_at"],
+                "updated_at": response.data["updated_at"],
             },
             response.data,
         )
@@ -138,6 +143,14 @@ class FundsTestCase(BaseFundTestCase):
                                     ("id", str(fund.id)),
                                     ("name", "Fund Name"),
                                     ("shares", 1000),
+                                    (
+                                        "created_at",
+                                        response.data["results"][0]["created_at"],
+                                    ),
+                                    (
+                                        "updated_at",
+                                        response.data["results"][0]["updated_at"],
+                                    ),
                                 ]
                             ),
                         ],
@@ -171,6 +184,8 @@ class FundsTestCase(BaseFundTestCase):
                 "id": response.data["id"],
                 "name": "Fund Name",
                 "shares": 1000,
+                "created_at": response.data["created_at"],
+                "updated_at": response.data["updated_at"],
             },
             response.data,
         )
@@ -186,6 +201,8 @@ class FundsTestCase(BaseFundTestCase):
                 "id": response.data["id"],
                 "name": "Fund Name",
                 "shares": 1000,
+                "created_at": response.data["created_at"],
+                "updated_at": response.data["updated_at"],
             },
             response.data,
         )
@@ -206,6 +223,86 @@ class FundsTestCase(BaseFundTestCase):
                 "id": response.data["id"],
                 "name": "Fund Name",
                 "shares": 2000,
+                "created_at": response.data["created_at"],
+                "updated_at": response.data["updated_at"],
+            },
+            response.data,
+        )
+
+    def test_create_allocation_empty(self):
+        fund = Fund.objects.create(owner=self.account, name="Fund Name")
+        request = self.factory.post(
+            f"/api/v1/funds/{fund.pk}",
+        )
+        force_authenticate(request, self.account, self.token)
+        response = FundViewSet.as_view({"post": "create_allocation"})(
+            request, pk=fund.pk
+        )
+        self.assertEqual(400, response.status_code)
+        self.assertEqual(
+            {
+                "ticker": [
+                    ErrorDetail("This field is required.", code="required"),
+                ],
+            },
+            response.data,
+        )
+
+    def test_create_allocation(self):
+        fund = Fund.objects.create(owner=self.account, name="Fund Name")
+        request = self.factory.post(
+            f"/api/v1/funds/{fund.pk}",
+            {
+                "ticker": "MSFT",
+            },
+        )
+        force_authenticate(request, self.account, self.token)
+        response = FundViewSet.as_view({"post": "create_allocation"})(
+            request, pk=fund.pk
+        )
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            {
+                "id": response.data["id"],
+                "fund": fund.pk,
+                "ticker": collections.OrderedDict(
+                    [
+                        ("symbol", "MSFT"),
+                    ]
+                ),
+                "shares": 0,
+                "created_at": response.data["created_at"],
+                "updated_at": response.data["updated_at"],
+            },
+            response.data,
+        )
+
+    def test_create_allocation_ticker_exist(self):
+        ticker = Ticker.objects.create(symbol="MSFT")
+        fund = Fund.objects.create(owner=self.account, name="Fund Name")
+        request = self.factory.post(
+            f"/api/v1/funds/{fund.pk}",
+            {
+                "ticker": "MSFT",
+            },
+        )
+        force_authenticate(request, self.account, self.token)
+        response = FundViewSet.as_view({"post": "create_allocation"})(
+            request, pk=fund.pk
+        )
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            {
+                "id": response.data["id"],
+                "fund": fund.pk,
+                "ticker": collections.OrderedDict(
+                    [
+                        ("symbol", "MSFT"),
+                    ]
+                ),
+                "shares": 0,
+                "created_at": response.data["created_at"],
+                "updated_at": response.data["updated_at"],
             },
             response.data,
         )

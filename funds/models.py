@@ -22,6 +22,9 @@ class Fund(models.Model):
     #: Total number of shares available to allocate
     shares = models.IntegerField(default=1000)
 
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
 
 class FundAllocation(models.Model):
     """
@@ -41,9 +44,6 @@ class FundAllocation(models.Model):
         on_delete=models.CASCADE,
         related_name="fund_allocations",
     )
-
-    #: Name of the allocation
-    name = models.CharField(max_length=64)
 
     #: Total number of shares allocated to this ticker
     shares = models.IntegerField(default=0)
