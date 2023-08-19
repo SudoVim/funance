@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.routers import BaseRouter
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.settings import api_settings
 
 from tickers.models import Ticker
 from .serializers import (
@@ -10,6 +11,7 @@ from .serializers import (
     CreateFundAllocationSerializer,
     FundAllocationSerializer,
 )
+from .models import FundAllocation
 
 
 class FundViewSet(
@@ -50,6 +52,42 @@ class FundViewSet(
             ).data,
         )
 
+    @action(detail=True, methods=["get"])
+    def allocations(self, request, pk=None):
+        """
+        List fund allocations for a fund
+        """
+        fund = self.get_object()
+        paginator = api_settings.DEFAULT_PAGINATION_CLASS()
+        page = paginator.paginate_queryset(
+            fund.allocations.order_by("ticker__symbol"),
+            request,
+        )
+        serializer = FundAllocationSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+
+class FundAllocationViewSet(
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    """
+    View and edit fund allocations
+    """
+
+    serializer_class = FundAllocationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return (
+            FundAllocation.objects.filter(fund__owner=self.request.user)
+            .order_by("ticker__symbol")
+            .all()
+        )
+
 
 def register_routes(router: BaseRouter):
     router.register(r"funds", FundViewSet, basename="fund")
+    router.register(r"fund_allocations", FundViewSet, basename="fundallocation")
