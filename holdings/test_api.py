@@ -184,14 +184,14 @@ class HoldingAccountTestCase(BaseHoldingAccountTestCase):
         )
 
     def test_update(self):
-        request = self.factory.post(
+        request = self.factory.patch(
             f"/api/v1/holding_accounts/{self.ha.pk}",
             {
                 "name": "New name",
             },
         )
         force_authenticate(request, self.account, self.token)
-        response = HoldingAccountViewSet.as_view({"post": "partial_update"})(
+        response = HoldingAccountViewSet.as_view({"patch": "partial_update"})(
             request, pk=self.ha.pk
         )
         self.assertEqual(200, response.status_code)
