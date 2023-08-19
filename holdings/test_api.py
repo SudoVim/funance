@@ -82,6 +82,8 @@ class HoldingAccountsTestCase(BaseHoldingAccountTestCase):
                         "name": "My Holding Account",
                         "currency": "USD",
                         "available_cash": 0,
+                        "created_at": response.data["results"][0]["created_at"],
+                        "updated_at": response.data["results"][0]["updated_at"],
                     },
                 ],
             },
@@ -133,6 +135,8 @@ class HoldingAccountsTestCase(BaseHoldingAccountTestCase):
                 "name": "My New Account",
                 "currency": "USD",
                 "available_cash": 0,
+                "created_at": response.data["created_at"],
+                "updated_at": response.data["updated_at"],
             },
             dict(response.data),
         )
@@ -179,6 +183,8 @@ class HoldingAccountTestCase(BaseHoldingAccountTestCase):
                 "name": "My Holding Account",
                 "currency": "USD",
                 "available_cash": 0,
+                "created_at": response.data["created_at"],
+                "updated_at": response.data["updated_at"],
             },
             response.data,
         )
@@ -201,6 +207,8 @@ class HoldingAccountTestCase(BaseHoldingAccountTestCase):
                 "name": "New name",
                 "currency": "USD",
                 "available_cash": 0,
+                "created_at": response.data["created_at"],
+                "updated_at": response.data["updated_at"],
             },
             dict(response.data),
         )
@@ -228,6 +236,7 @@ class HoldingAccountTestCase(BaseHoldingAccountTestCase):
                 "price": 120.0,
                 "quantity": 5.0,
                 "purchased_at": "2023-06-24T00:00:00Z",
+                "created_at": response.data["created_at"],
                 "ticker": {
                     "symbol": "AAPL",
                 },
@@ -259,6 +268,7 @@ class HoldingAccountTestCase(BaseHoldingAccountTestCase):
                 "price": 120.0,
                 "quantity": 5.0,
                 "purchased_at": "2023-06-24T00:00:00Z",
+                "created_at": response.data["created_at"],
                 "ticker": {
                     "symbol": "AAPL",
                 },
@@ -338,6 +348,7 @@ class HoldingAccountPurchasesTestCase(BaseHoldingAccountPurchaseTestCase):
                         "price": 120.0,
                         "quantity": 5.0,
                         "purchased_at": "2023-06-24T00:00:00Z",
+                        "created_at": response.data["results"][0]["created_at"],
                         "ticker": {
                             "symbol": "AAPL",
                         },
@@ -389,6 +400,7 @@ class HoldingAccountPurchasesTestCase(BaseHoldingAccountPurchaseTestCase):
                         "price": 110.0,
                         "quantity": 5.0,
                         "purchased_at": "2022-06-24T00:00:00Z",
+                        "created_at": response.data["results"][0]["created_at"],
                         "ticker": {
                             "symbol": "AAPL",
                         },
@@ -437,6 +449,7 @@ class HoldingAccountPurchasesTestCase(BaseHoldingAccountPurchaseTestCase):
                         "price": 120.0,
                         "quantity": 5.0,
                         "purchased_at": "2023-06-24T00:00:00Z",
+                        "created_at": response.data["results"][0]["created_at"],
                         "ticker": {
                             "symbol": "MSFT",
                         },
@@ -469,6 +482,7 @@ class HoldingAccountPurchasesTestCase(BaseHoldingAccountPurchaseTestCase):
                 "price": 120.0,
                 "quantity": 5.0,
                 "purchased_at": "2023-06-24T00:00:00Z",
+                "created_at": response.data["created_at"],
                 "ticker": {
                     "symbol": "AAPL",
                 },

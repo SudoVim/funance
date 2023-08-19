@@ -38,6 +38,9 @@ class HoldingAccount(models.Model):
     def available_cash_value(self):
         return int(self.available_cash)
 
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
 
 class HoldingAccountPurchase(models.Model):
     """
