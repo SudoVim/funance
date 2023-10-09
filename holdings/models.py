@@ -71,7 +71,7 @@ class HoldingAccountPurchase(models.Model):
         return float(self.quantity)
 
     #: The price of the security at purchase time.
-    price = models.DecimalField(max_digits=32, decimal_places=4)
+    price = models.DecimalField(max_digits=32, decimal_places=8)
 
     @property
     def price_value(self):
