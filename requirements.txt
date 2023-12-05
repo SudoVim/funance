@@ -9,6 +9,6 @@ numpy>=1.23.0,<2                # play with numbers
 pandas>=1.4.3,<2                # play with datasets
 pandas-datareader>=0.10.0,<0.11 # digest data from various sources
 
-black>=22.6.0,<23       # Code formatting
-pip-check-updates       # library for comparing installed versions to those in
-                        # pypi
+black>=22.6.0,<23                   # Code formatting
+pip-check-updates>=0.23.0,<0.24     # library for comparing installed versions
+                                    # to those in pypi
