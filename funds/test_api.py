@@ -9,8 +9,8 @@ from knox.models import AuthToken
 from tickers.models import Ticker
 from accounts.models import Account
 
-from .api import FundViewSet
-from .models import Fund
+from .api import FundViewSet, FundAllocationViewSet
+from .models import Fund, FundAllocation
 
 
 class BaseFundTestCase(TestCase):
@@ -301,6 +301,118 @@ class FundsTestCase(BaseFundTestCase):
                     ]
                 ),
                 "shares": 0,
+                "created_at": response.data["created_at"],
+                "updated_at": response.data["updated_at"],
+            },
+            response.data,
+        )
+
+    def test_list_allocations_empty(self):
+        fund = Fund.objects.create(owner=self.account, name="Fund Name")
+        request = self.factory.get(f"/api/v1/funds/{fund.pk}")
+        force_authenticate(request, self.account, self.token)
+        response = FundViewSet.as_view({"get": "allocations"})(request, pk=fund.pk)
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            collections.OrderedDict(
+                [
+                    ("count", 0),
+                    ("next", None),
+                    ("previous", None),
+                    ("results", []),
+                ]
+            ),
+            response.data,
+        )
+
+    def test_list_allocations(self):
+        fund = Fund.objects.create(owner=self.account, name="Fund Name")
+        ticker = Ticker.objects.create(symbol="MSFT")
+        allocation = FundAllocation.objects.create(fund=fund, ticker=ticker, shares=5)
+        request = self.factory.get(f"/api/v1/funds/{fund.pk}")
+        force_authenticate(request, self.account, self.token)
+        response = FundViewSet.as_view({"get": "allocations"})(request, pk=fund.pk)
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            collections.OrderedDict(
+                [
+                    ("count", 1),
+                    ("next", None),
+                    ("previous", None),
+                    (
+                        "results",
+                        [
+                            collections.OrderedDict(
+                                [
+                                    ("id", str(allocation.id)),
+                                    ("fund", fund.id),
+                                    (
+                                        "ticker",
+                                        collections.OrderedDict([("symbol", "MSFT")]),
+                                    ),
+                                    ("shares", 5),
+                                    (
+                                        "created_at",
+                                        response.data["results"][0]["created_at"],
+                                    ),
+                                    (
+                                        "updated_at",
+                                        response.data["results"][0]["updated_at"],
+                                    ),
+                                ]
+                            ),
+                        ],
+                    ),
+                ]
+            ),
+            response.data,
+        )
+
+
+class FundAllocationsTestCase(BaseFundTestCase):
+    def setUp(self):
+        super().setUp()
+        self.factory = APIRequestFactory()
+        self.maxDiff = None
+        self.fund = Fund.objects.create(owner=self.account, name="Fund Name")
+        self.ticker = Ticker.objects.create(symbol="MSFT")
+        self.allocation = FundAllocation.objects.create(
+            fund=self.fund, ticker=self.ticker, shares=5
+        )
+
+    def test_retrieve_unauthed(self):
+        request = self.factory.get(f"/api/v1/fund_allocations/{self.allocation.pk}")
+        response = FundAllocationViewSet.as_view({"get": "retrieve"})(
+            request, pk=self.allocation.pk
+        )
+        self.assertEqual(401, response.status_code)
+        self.assertEqual(
+            {
+                "detail": ErrorDetail(
+                    "Authentication credentials were not provided.",
+                    code="not_authenticated",
+                ),
+            },
+            response.data,
+        )
+
+    def test_retrieve(self):
+        request = self.factory.get(f"/api/v1/fund_allocations/{self.allocation.pk}")
+        force_authenticate(request, self.account, self.token)
+        response = FundAllocationViewSet.as_view({"get": "retrieve"})(
+            request, pk=self.allocation.pk
+        )
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            {
+                "id": str(self.allocation.id),
+                "fund": self.fund.pk,
+                "ticker": collections.OrderedDict(
+                    [
+                        ("symbol", "MSFT"),
+                    ]
+                ),
+                "shares": 5,
                 "created_at": response.data["created_at"],
                 "updated_at": response.data["updated_at"],
             },
