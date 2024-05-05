@@ -23,7 +23,7 @@ services:
     image: redis:6
   celery:
     build: .
-    command: celery -A funance worker --loglevel=info
+    command: pipenv run celery -A funance worker --loglevel=info
     depends_on:
       - redis
     volumes:

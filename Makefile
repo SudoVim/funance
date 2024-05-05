@@ -22,12 +22,12 @@ shell:
 
 .PHONY: test
 test:
-	@$(DOCKER_COMPOSE) run web ./manage.py test
+	@$(DOCKER_COMPOSE) run web pipenv run python ./manage.py test
 
 .PHONY: format
 format:
-	@git ls-files | grep "\.py$ " | grep -v "/migrations/" | xargs $(DOCKER_COMPOSE) run web black
+	@git ls-files | grep "\.py$ " | grep -v "/migrations/" | xargs pipenv run black
 
 .PHONY: format-check
 format-check:
-	@git ls-files | grep "\.py$ " | grep -v "/migrations/" | xargs $(DOCKER_COMPOSE) run web black --check
+	@git ls-files | grep "\.py$ " | grep -v "/migrations/" | xargs pipenv run black --check

@@ -1,0 +1,25 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+django = "<5,>=4.0.4"
+djangorestframework = "<4,>=3.13.1"
+django-cors-headers = "<4,>=3.13.0"
+celery = "<6,>=5.2.7"
+psycopg2 = "<3,>=2.9.3"
+python-dateutil = "<3,>=2.8.2"
+elasticsearch = "<8,>=7.5.1"
+numpy = "<2,>=1.23.0"
+pandas = "<2,>=1.4.3"
+pandas-datareader = "<0.11,>=0.10.0"
+django-rest-knox = "<5,>=4.2.0"
+yfinance = "<0.3,>=0.2.38"
+
+[dev-packages]
+black = "<23,>=22.6.0"
+pip-check-updates = "<0.24,>=0.23.0"
+
+[requires]
+python_version = "3.10"
