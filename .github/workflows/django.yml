@@ -38,7 +38,7 @@ jobs:
         pipenv install --dev
 
     - name: Check formatting
-      run: git ls-files | grep "\.py$" | grep -v "/migrations/" | xargs python -m black --check
+      run: make format-check
 
     - name: Check migrations
       run: python manage.py makemigrations --check
