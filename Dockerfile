@@ -1,9 +1,9 @@
 FROM python:3.10
 
 WORKDIR /code
-COPY requirements-lock.txt requirements-lock.txt
-RUN pip install -U pip
-RUN pip install -r requirements-lock.txt
+COPY Pipfile Pipfile
+COPY Pipfile.lock Pipfile.lock
+RUN pip install -U pip && pip install pipenv && pipenv install
 
 EXPOSE 8005
-CMD ["/code/manage.py", "runserver", "0.0.0.0:8005"]
+CMD ["pipenv", "run", "python", "/code/manage.py", "runserver", "0.0.0.0:8005"]
