@@ -17,7 +17,7 @@ class LoginAPI(LoginView):
     handler for logging in to the application
     """
 
-    authentication_classes = []
+    authentication_classes: list = []
     permission_classes = [permissions.AllowAny]
 
     def post(self, request, format=None):

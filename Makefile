@@ -2,7 +2,7 @@ DOCKER_COMPOSE = docker-compose
 
 .PHONY: build
 build:
-	$(DOCKER_COMPOSE) build
+	./scripts/build.sh
 
 .PHONY: start
 start:
@@ -30,8 +30,12 @@ test:
 
 .PHONY: format
 format:
-	@git ls-files | grep "\.py$ " | grep -v "/migrations/" | xargs pipenv run black
+	@$(DOCKER_COMPOSE) run web pipenv run black --exclude '(/migrations/|.venv/)' .
 
 .PHONY: format-check
 format-check:
-	@git ls-files | grep "\.py$ " | grep -v "/migrations/" | xargs pipenv run black --check
+	@$(DOCKER_COMPOSE) run web pipenv run black --exclude '(/migrations/|.venv/)' . --check
+
+.PHONY: mypy
+mypy:
+	@$(DOCKER_COMPOSE) run web pipenv run mypy .
