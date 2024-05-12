@@ -11,7 +11,8 @@ services:
       - redis
       - elastic
     volumes:
-      - .:/code
+      - .:/funance
+      - $HOME/.local/share/virtualenvs:/root/.local/share/virtualenvs
     ports:
       - "8005:8005"
   db:
@@ -28,7 +29,7 @@ services:
     depends_on:
       - redis
     volumes:
-      - .:/code
+      - .:/funance
   elastic:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
     environment:

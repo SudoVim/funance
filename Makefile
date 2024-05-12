@@ -20,6 +20,10 @@ stop:
 shell:
 	@$(DOCKER_COMPOSE) run web bash
 
+.PHONY: django-shell
+django-shell:
+	@$(DOCKER_COMPOSE) run web pipenv run python ./manage.py shell
+
 .PHONY: test
 test:
 	@$(DOCKER_COMPOSE) run web pipenv run python ./manage.py test
