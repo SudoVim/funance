@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from funance_data.config import CONFIG_VALUES as FUNANCE_DATA_CONFIG_VALUES
 
 load_dotenv()
 
@@ -161,3 +162,9 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 ELASTICSEARCH_URL = os.getenv("ELASTICSEARCH_URL", "http://elastic:9200")  # type: str
 ELASTICSEARCH_USERNAME = os.getenv("ELASTICSEARCH_USERNAME", "elastic")  # type: str
 ELASTICSEARCH_PASSWORD = os.getenv("ELASTICSEARCH_PASSWORD", "")  # type: str
+ELASTICSEARCH_INDEX_PREFIX = os.getenv("ELASTICSEARCH_PREFIX", "funance-")  # type: str
+
+FUNANCE_DATA_CONFIG_VALUES["elasticsearch.url"] = ELASTICSEARCH_URL
+FUNANCE_DATA_CONFIG_VALUES["elasticsearch.username"] = ELASTICSEARCH_USERNAME
+FUNANCE_DATA_CONFIG_VALUES["elasticsearch.password"] = ELASTICSEARCH_PASSWORD
+FUNANCE_DATA_CONFIG_VALUES["elasticsearch.index_prefix"] = ELASTICSEARCH_INDEX_PREFIX

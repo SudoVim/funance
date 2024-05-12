@@ -1,6 +1,7 @@
 from django.db import models
 
-from .ohlc import TickerOHLC
+from funance_data.tickers.info import TickerInfoStore
+from funance_data.tickers.daily import TickerDailyStore
 
 
 class Ticker(models.Model):
@@ -9,8 +10,15 @@ class Ticker(models.Model):
     )
 
     @property
-    def ohlc(self):
+    def info(self):
         """
-        ohlc data for the given ticker
+        ticker info
         """
-        return TickerOHLC(self.symbol)
+        return TickerInfoStore(self.symbol)  # type: ignore
+
+    @property
+    def daily(self):
+        """
+        daily price data for the given ticker
+        """
+        return TickerDailyStore(self.symbol)  # type: ignore

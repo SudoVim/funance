@@ -7,6 +7,16 @@ import sys
 import argparse
 
 from funance.elastic import client
+from funance_data.tickers.info import TickerInfoStore
+from funance_data.tickers.daily import TickerDailyStore
+
+from django.conf import settings
+
+
+STORES = [
+    TickerInfoStore,
+    TickerDailyStore,
+]
 
 
 def main(argv):
@@ -14,23 +24,13 @@ def main(argv):
     parser = argparse.ArgumentParser(
         description="index database(s) for stock data",
     )
-    args = parser.parse_args(argv)
+    parser.parse_args(argv)
 
-    c = client()
-    for index in ["funance-ohlc"]:
-        if not c.indices.exists(index):
-            c.indices.create(index=index)
+    for store in STORES:
+        import pdb
 
-    c.indices.put_mapping(
-        index="funance-ohlc",
-        body={
-            "properties": {
-                "doc.date": {
-                    "type": "date",
-                },
-            },
-        },
-    )
+        pdb.set_trace()
+        store.create_index()
 
     return 0
 
