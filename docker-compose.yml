@@ -12,9 +12,10 @@ services:
       - elastic
     volumes:
       - .:/funance
-      - $HOME/.local/share/virtualenvs:/root/.local/share/virtualenvs
     ports:
       - "8005:8005"
+    environment:
+      PIPENV_VENV_IN_PROJECT: 1
   db:
     image: postgres:14
     environment:
