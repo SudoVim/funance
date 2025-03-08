@@ -15,5 +15,6 @@
   "reportUnannotatedClassAttribute": false,
   "reportIncompatibleVariableOverride": false,
   "reportExplicitAny": false,
-  "reportAny": false
+  "reportAny": false,
+  "reportUnusedParameter": false
 }

@@ -1,4 +1,4 @@
-import uuid
+from typing import Any
 
 from django.db.models import QuerySet
 from rest_framework import mixins, viewsets
@@ -50,7 +50,7 @@ class HoldingAccountViewSet(
         serializer.save(owner=self.request.user)
 
     @action(detail=True, methods=["post"])
-    def create_purchase(self, request: Request):
+    def create_purchase(self, request: Request, pk: Any = None):
         """
         Create and return a new purchase for the specified holding account
         """
@@ -100,7 +100,7 @@ class HoldingAccountPurchaseViewSet(
         )
         _ = serializer.is_valid()
 
-        holding_account_pk = uuid.UUID(serializer.validated_data.get("holding_account"))
+        holding_account_pk = serializer.validated_data.get("holding_account")
         if holding_account_pk:
             queryset = queryset.filter(holding_account__pk=holding_account_pk)
 

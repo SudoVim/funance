@@ -8,12 +8,12 @@ from holdings.models import (
 
 
 @admin.register(HoldingAccount)
-class HoldingAccountAdmin(admin.ModelAdmin[HoldingAccount]):
+class HoldingAccountAdmin(admin.ModelAdmin):  # pyright: ignore[reportMissingTypeArgument]
     pass
 
 
 @admin.register(HoldingAccountPurchase)
-class HoldingAccountPurchaseAdmin(admin.ModelAdmin[HoldingAccountPurchase]):
+class HoldingAccountPurchaseAdmin(admin.ModelAdmin):  # pyright: ignore[reportMissingTypeArgument]
     list_display = [
         "id",
         "account_name",
@@ -27,5 +27,5 @@ class HoldingAccountPurchaseAdmin(admin.ModelAdmin[HoldingAccountPurchase]):
 
 
 @admin.register(HoldingAccountDocument)
-class HoldingAccountDocumentAdmin(admin.ModelAdmin[HoldingAccountDocument]):
+class HoldingAccountDocumentAdmin(admin.ModelAdmin):  # pyright: ignore[reportMissingTypeArgument]
     list_display = ("__str__", "created_at")

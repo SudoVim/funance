@@ -1,3 +1,5 @@
+from typing import Any
+
 from django.db.models import QuerySet
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
@@ -42,7 +44,7 @@ class FundViewSet(
         serializer.save(owner=self.request.user)
 
     @action(detail=True, methods=["post"])
-    def create_allocation(self, request: Request) -> Response:
+    def create_allocation(self, request: Request, pk: Any = None) -> Response:
         """
         Create and return a new allocation for the specified fund
         """
@@ -60,7 +62,7 @@ class FundViewSet(
         )
 
     @action(detail=True, methods=["get"])
-    def allocations(self, request: Request) -> Response:
+    def allocations(self, request: Request, pk: Any = None) -> Response:
         """
         List fund allocations for a fund
         """
