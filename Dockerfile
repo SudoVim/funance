@@ -1,7 +1,9 @@
 FROM python:3.10
 
-RUN apt update && \
-    apt install -y python3-setuptools
+RUN apt-get -y update && \
+    apt-get -y install vim freetds-dev freetds-bin unixodbc-dev tdsodbc poppler-utils && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN curl -sSL https://install.python-poetry.org | python3 -
 RUN /root/.local/bin/poetry config virtualenvs.create false

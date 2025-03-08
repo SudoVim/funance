@@ -56,16 +56,11 @@ lint: ruff-check pyright
 
 .PHONY: format
 format:
-	$(DOCKER_COMPOSE_RUN_NO_DEPS) web sh -c "ruff check --select I --fix && ruff format"
+	$(DOCKER_COMPOSE_RUN_NO_DEPS) web ruff check --select I
+	$(DOCKER_COMPOSE_RUN_NO_DEPS) web ruff format
 
 .PHONY: fastci
 fastci: format lint test-fast
-
-.PHONY: sci
-sci: format lint test
-
-.PHONY: ci
-ci: sci build-docs
 
 .PHONY: migrate
 migrate:

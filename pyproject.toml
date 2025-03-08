@@ -39,7 +39,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
-exclude = [".git", ".venv", "build", "dist", "migrations", "pricing", "subs"]
+exclude = [".git", ".venv", "migrations", "funance_data", "subs"]
 
 
 [tool.ruff.lint]
