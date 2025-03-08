@@ -9,7 +9,7 @@ services:
     depends_on:
       - db
       - redis
-      - elastic
+        #- elastic
     volumes:
       - .:/funance
     ports:
@@ -31,9 +31,9 @@ services:
       - redis
     volumes:
       - .:/funance
-  elastic:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
-    environment:
-      - discovery.type=single-node
-    volumes:
-      - elastic-data:/usr/share/elasticsearch/data
+        #  elastic:
+        #    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+        #    environment:
+        #      - discovery.type=single-node
+        #    volumes:
+        #      - elastic-data:/usr/share/elasticsearch/data

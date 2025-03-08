@@ -1,3 +1,4 @@
+from typing import Literal
 import uuid
 
 from django.db import models
@@ -41,6 +42,17 @@ class HoldingAccount(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    purchases: models.QuerySet["HoldingAccountPurchase"]
+
+    def __str__(self) -> str:
+        return "  ".join(
+            [
+                self.owner.first_name,
+                self.owner.last_name,
+                self.name,
+            ]
+        )
+
 
 class HoldingAccountPurchase(models.Model):
     """
@@ -55,11 +67,38 @@ class HoldingAccountPurchase(models.Model):
         on_delete=models.CASCADE,
         related_name="purchases",
     )
+
+    @property
+    def account_name(self) -> str:
+        """
+        Name of the associated account.
+        """
+        return self.holding_account.name
+
     ticker = models.ForeignKey(
         "tickers.Ticker",
         on_delete=models.CASCADE,
         related_name="holding_account_purchases",
     )
+
+    @property
+    def ticker_symbol(self) -> str:
+        """
+        Ticker symbol represented by this purchase.
+        """
+        return self.ticker.symbol
+
+    Operation = Literal["BUY", "SELL"]
+
+    @property
+    def operation(self) -> Operation:
+        """
+        Operation performed.
+        """
+        if self.quantity >= 0:
+            return "BUY"
+
+        return "SELL"
 
     #: The quantity of the security to buy. I gave this eight decimal places in
     #  case the security can be bought in fractions. Bitcoin, for instance, can
@@ -70,6 +109,10 @@ class HoldingAccountPurchase(models.Model):
     def quantity_value(self):
         return float(self.quantity)
 
+    @property
+    def abs_quantity_value(self):
+        return abs(self.quantity_value)
+
     #: The price of the security at purchase time.
     price = models.DecimalField(max_digits=32, decimal_places=8)
 
@@ -79,3 +122,50 @@ class HoldingAccountPurchase(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     purchased_at = models.DateTimeField()
+
+    def __str__(self) -> str:
+        return self.id
+
+
+def holding_account_document_upload_to(
+    document: "HoldingAccountDocument", filename: str
+) -> str:
+    return "/".join(
+        [
+            "data",
+            "holding_account_documents",
+            document.created_at.strftime("%Y"),
+            document.created_at.strftime("%m"),
+            document.created_at.strftime("%d"),
+            str(document.holding_account.id),
+            "-".join(
+                [
+                    str(document.id).split("-")[0],
+                    filename,
+                ]
+            ),
+        ]
+    )
+
+
+class HoldingAccountDocument(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    holding_account = models.ForeignKey(
+        "HoldingAccount",
+        on_delete=models.CASCADE,
+        related_name="documents",
+    )
+
+    document = models.FileField(
+        max_length=256, upload_to=holding_account_document_upload_to
+    )
+
+    class DocumentType(models.TextChoices):
+        pass
+
+    def __str__(self) -> str:
+        return self.document.name.split("/")[-1]
