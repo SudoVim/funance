@@ -19,4 +19,4 @@ RUN /root/.local/bin/poetry install --no-root
 
 COPY --chown=app:app . /code/
 EXPOSE 8005
-CMD ["poetry", "run", "python", "/code/manage.py", "runserver", "0.0.0.0:8005"]
+CMD ["/root/.local/bin/poetry", "run", "python", "/code/manage.py", "runserver", "0.0.0.0:8005"]
