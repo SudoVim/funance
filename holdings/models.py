@@ -1,8 +1,13 @@
-from typing import Literal
 import uuid
+from decimal import Decimal
+from typing import Literal
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from typing_extensions import override
+
+from accounts.models import Account
+from tickers.models import Ticker
 
 
 class HoldingAccount(models.Model):
@@ -13,7 +18,7 @@ class HoldingAccount(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    owner = models.ForeignKey(
+    owner = models.ForeignKey[Account](
         "accounts.Account", on_delete=models.CASCADE, related_name="holding_accounts"
     )
 
@@ -33,17 +38,18 @@ class HoldingAccount(models.Model):
         return self.Currency(self.currency).label
 
     #: The amount of cash that's available for purchase
-    available_cash = models.DecimalField(max_digits=32, decimal_places=4, default=0)
+    available_cash = models.DecimalField(
+        max_digits=32, decimal_places=4, default=Decimal("0")
+    )
 
     @property
-    def available_cash_value(self):
-        return int(self.available_cash)
+    def available_cash_value(self) -> Decimal:
+        return self.available_cash
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    purchases: models.QuerySet["HoldingAccountPurchase"]
-
+    @override
     def __str__(self) -> str:
         return "  ".join(
             [
@@ -62,7 +68,7 @@ class HoldingAccountPurchase(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    holding_account = models.ForeignKey(
+    holding_account = models.ForeignKey["HoldingAccount"](
         "HoldingAccount",
         on_delete=models.CASCADE,
         related_name="purchases",
@@ -75,7 +81,7 @@ class HoldingAccountPurchase(models.Model):
         """
         return self.holding_account.name
 
-    ticker = models.ForeignKey(
+    ticker = models.ForeignKey[Ticker](
         "tickers.Ticker",
         on_delete=models.CASCADE,
         related_name="holding_account_purchases",
@@ -123,8 +129,9 @@ class HoldingAccountPurchase(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     purchased_at = models.DateTimeField()
 
+    @override
     def __str__(self) -> str:
-        return self.id
+        return str(self.id)
 
 
 def holding_account_document_upload_to(
@@ -154,7 +161,7 @@ class HoldingAccountDocument(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    holding_account = models.ForeignKey(
+    holding_account = models.ForeignKey[HoldingAccount](
         "HoldingAccount",
         on_delete=models.CASCADE,
         related_name="documents",
@@ -167,5 +174,6 @@ class HoldingAccountDocument(models.Model):
     class DocumentType(models.TextChoices):
         pass
 
+    @override
     def __str__(self) -> str:
         return self.document.name.split("/")[-1]

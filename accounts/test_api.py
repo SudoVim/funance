@@ -1,14 +1,14 @@
 import datetime
 import unittest.mock
 
-from knox.models import AuthToken
 from django.test import TestCase
-from rest_framework.test import APIRequestFactory, force_authenticate
+from knox.models import AuthToken
 from rest_framework.exceptions import ErrorDetail
+from rest_framework.test import APIRequestFactory, force_authenticate
 
 from accounts.models import Account
 
-from .api import LoginAPI, LogoutAPI, LogoutAllAPI
+from .api import LoginAPI, LogoutAllAPI, LogoutAPI
 
 
 def mock_login():

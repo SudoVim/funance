@@ -1,4 +1,5 @@
 from django.contrib import admin
+
 from holdings.models import (
     HoldingAccount,
     HoldingAccountDocument,
@@ -7,12 +8,12 @@ from holdings.models import (
 
 
 @admin.register(HoldingAccount)
-class HoldingAccountAdmin(admin.ModelAdmin):
+class HoldingAccountAdmin(admin.ModelAdmin[HoldingAccount]):
     pass
 
 
 @admin.register(HoldingAccountPurchase)
-class HoldingAccountPurchaseAdmin(admin.ModelAdmin):
+class HoldingAccountPurchaseAdmin(admin.ModelAdmin[HoldingAccountPurchase]):
     list_display = [
         "id",
         "account_name",
@@ -26,5 +27,5 @@ class HoldingAccountPurchaseAdmin(admin.ModelAdmin):
 
 
 @admin.register(HoldingAccountDocument)
-class HoldingAccountDocumentAdmin(admin.ModelAdmin):
+class HoldingAccountDocumentAdmin(admin.ModelAdmin[HoldingAccountDocument]):
     list_display = ("__str__", "created_at")

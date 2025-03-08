@@ -7,7 +7,6 @@ import datetime
 from decimal import Decimal
 from typing import Any, Literal
 
-
 Action = Literal["buy", "sell"]
 ActionKey = tuple[datetime.date, Action, Decimal, Decimal]
 
@@ -77,7 +76,7 @@ class PositionSale:
             [s.profit() for s in sales]
         )
 
-    def to_python(self) -> dict:
+    def to_python(self) -> dict[str, Any]:
         """
         Convert this sale to a pythonic ``dict``.
         """
@@ -403,7 +402,7 @@ class Position:
             )
             purchase.quantity -= delta_quantity
             if purchase.quantity == 0:
-                self.available_purchases.popleft()
+                _ = self.available_purchases.popleft()
 
             found_quantity += delta_quantity
             self.quantity -= delta_quantity
@@ -492,7 +491,7 @@ class PositionSet:
         if self.latest_date is None:
             self.latest_date = action.date
 
-        if self.latest_date > action.date:  # pyright: ignore
+        if self.latest_date > action.date:  # pyright: ignore[reportOperatorIssue]
             return
 
         if action.symbol not in self.positions:
@@ -511,7 +510,7 @@ class PositionSet:
         if self.latest_date is None:
             self.latest_date = generation.date
 
-        if self.latest_date > generation.date:  # pyright: ignore
+        if self.latest_date > generation.date:  # pyright: ignore[reportOperatorIssue]
             return
 
         if generation.symbol not in self.positions:

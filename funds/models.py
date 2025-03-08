@@ -3,6 +3,9 @@ import uuid
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from accounts.models import Account
+from tickers.models import Ticker
+
 
 class Fund(models.Model):
     """
@@ -12,7 +15,7 @@ class Fund(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    owner = models.ForeignKey(
+    owner = models.ForeignKey[Account](
         "accounts.Account", on_delete=models.CASCADE, related_name="funds"
     )
 
@@ -34,12 +37,12 @@ class FundAllocation(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    fund = models.ForeignKey(
+    fund = models.ForeignKey["Fund"](
         "Fund",
         on_delete=models.CASCADE,
         related_name="allocations",
     )
-    ticker = models.ForeignKey(
+    ticker = models.ForeignKey[Ticker](
         "tickers.Ticker",
         on_delete=models.CASCADE,
         related_name="fund_allocations",

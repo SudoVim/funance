@@ -2,7 +2,6 @@ volumes:
   postgres-data:
   elastic-data:
 
-version: '3'
 services:
   web:
     build: .
@@ -11,7 +10,7 @@ services:
       - redis
         #- elastic
     volumes:
-      - .:/funance
+      - .:/code
     ports:
       - "8005:8005"
     environment:

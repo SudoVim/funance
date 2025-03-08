@@ -3,15 +3,11 @@
 index database(s) for stock data
 """
 
-import sys
 import argparse
+import sys
 
-from funance.elastic import client
-from funance_data.tickers.info import TickerInfoStore
 from funance_data.tickers.daily import TickerDailyStore
-
-from django.conf import settings
-
+from funance_data.tickers.info import TickerInfoStore
 
 STORES = [
     TickerInfoStore,
@@ -19,17 +15,14 @@ STORES = [
 ]
 
 
-def main(argv):
+def main(argv: list[str]):
     """main function"""
     parser = argparse.ArgumentParser(
         description="index database(s) for stock data",
     )
-    parser.parse_args(argv)
+    _ = parser.parse_args(argv)
 
     for store in STORES:
-        import pdb
-
-        pdb.set_trace()
         store.create_index()
 
     return 0

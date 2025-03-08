@@ -1,7 +1,6 @@
 from rest_framework import serializers
-from rest_framework.fields import empty
 
-from tickers.models import Ticker
+from tickers.models import TICKER_LENGTH
 from tickers.serializers import TickerSerializer
 
 from .models import HoldingAccount, HoldingAccountPurchase
@@ -26,7 +25,7 @@ class HoldingAccountSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class CreateHoldingAccountPurchaseSerializer(serializers.ModelSerializer):
-    ticker = serializers.CharField(max_length=Ticker.symbol.field.max_length)
+    ticker = serializers.CharField(max_length=TICKER_LENGTH)
 
     class Meta:
         model = HoldingAccountPurchase
@@ -41,7 +40,8 @@ class CreateHoldingAccountPurchaseSerializer(serializers.ModelSerializer):
 class HoldingAccountPurchaseRequestSerializer(serializers.ModelSerializer):
     holding_account = serializers.UUIDField(required=False)
     ticker = serializers.CharField(
-        max_length=Ticker.symbol.field.max_length, required=False
+        max_length=TICKER_LENGTH,
+        required=False,
     )
 
     class Meta:

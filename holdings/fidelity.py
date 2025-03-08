@@ -2,11 +2,13 @@
 Module related to fidelity-specific logic.
 """
 
-import dateparser
 import csv
 import datetime
-from decimal import Decimal
 import re
+from decimal import Decimal
+
+import dateparser
+
 from holdings.documents import DocumentParser
 from holdings.models import HoldingAccountDocument
 from holdings.positions import PositionAction, PositionGeneration, PositionSet
@@ -59,7 +61,7 @@ class StatementParser:
         """
         Parse a ``list`` of :class:`PositionAction` s from the given *lines*.
         """
-        ret = []
+        ret: list[PositionAction] = []
         for symbol, description, qty, price, _, _, cost_basis in csv.reader(lines):
             ret.append(
                 PositionAction(
@@ -107,8 +109,11 @@ class ActivityParser:
         positions = positions.copy()
         lines = self.parser.lines_between("Run Date")
 
-        def key(row):
-            date = dateparser.parse(row["Run Date"].strip()).date()
+        def key(row: dict[str, str]) -> tuple[datetime.date, int]:
+            parsed = dateparser.parse(row["Run Date"].strip())
+            assert parsed is not None
+
+            date = parsed.date()
             assert date is not None
             if row["Action"].strip().startswith("YOU BOUGHT"):
                 return date, 0

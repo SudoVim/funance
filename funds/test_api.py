@@ -1,15 +1,15 @@
-import datetime
 import collections
+import datetime
 
 from django.test import TestCase
-from rest_framework.test import APIRequestFactory, force_authenticate
-from rest_framework.exceptions import ErrorDetail
 from knox.models import AuthToken
+from rest_framework.exceptions import ErrorDetail
+from rest_framework.test import APIRequestFactory, force_authenticate
 
-from tickers.models import Ticker
 from accounts.models import Account
+from tickers.models import Ticker
 
-from .api import FundViewSet, FundAllocationViewSet
+from .api import FundAllocationViewSet, FundViewSet
 from .models import Fund, FundAllocation
 
 

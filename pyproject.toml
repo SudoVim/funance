@@ -20,6 +20,7 @@ django-rest-knox = "<5,>=4.2.0"
 yfinance = "<0.3,>=0.2.38"
 python-dotenv = "<2,>=1.0.1"
 psycopg2 = "<3,>=2.9.9"
+dateparser = "^1.2.1"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -27,7 +28,27 @@ black = "<23,>=22.6.0"
 pip-check-updates = "<0.24,>=0.23.0"
 mypy = "<2,>=1.10.0"
 types-pytz = "*"
+ruff = "^0.9.10"
+basedpyright = "^1.10.2"
+djangorestframework-types = "^0.9.0"
+django-types = "^0.20.0"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+exclude = [".git", ".venv", "build", "dist", "migrations", "pricing", "subs"]
+
+
+[tool.ruff.lint]
+ignore = [
+  "F401", # explicit re-export from __init__.py
+  "F403", # * used, not able to detect undefined names
+  "E741", # ambiguous variable name
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/test_*.py" = [
+  "F841", # ignored unused local variables in tests
+]
