@@ -37,6 +37,10 @@ jobs:
         curl -sSL https://install.python-poetry.org | python3 -
         poetry install --no-root
 
+    - run: |
+        poetry run ruff check --select I --fix
+        git diff
+
     - name: Check formatting
       run: |
         poetry run ruff check --select I
