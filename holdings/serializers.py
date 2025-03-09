@@ -1,9 +1,6 @@
 from rest_framework import serializers
 
-from tickers.models import TICKER_LENGTH
-from tickers.serializers import TickerSerializer
-
-from .models import HoldingAccount, HoldingAccountPurchase
+from .models import HoldingAccount
 
 
 class HoldingAccountSerializer(serializers.HyperlinkedModelSerializer):
@@ -21,52 +18,4 @@ class HoldingAccountSerializer(serializers.HyperlinkedModelSerializer):
         extra_kwargs = {
             "currency": {"source": "currency_label"},
             "available_cash": {"source": "available_cash_value"},
-        }
-
-
-class CreateHoldingAccountPurchaseSerializer(serializers.ModelSerializer):
-    ticker = serializers.CharField(max_length=TICKER_LENGTH)
-
-    class Meta:
-        model = HoldingAccountPurchase
-        fields = [
-            "ticker",
-            "quantity",
-            "price",
-            "purchased_at",
-        ]
-
-
-class HoldingAccountPurchaseRequestSerializer(serializers.ModelSerializer):
-    holding_account = serializers.UUIDField(required=False)
-    ticker = serializers.CharField(
-        max_length=TICKER_LENGTH,
-        required=False,
-    )
-
-    class Meta:
-        model = HoldingAccountPurchase
-        fields = [
-            "holding_account",
-            "ticker",
-        ]
-
-
-class HoldingAccountPurchaseSerializer(serializers.HyperlinkedModelSerializer):
-    ticker = TickerSerializer()
-
-    class Meta:
-        model = HoldingAccountPurchase
-        fields = [
-            "id",
-            "holding_account",
-            "ticker",
-            "quantity",
-            "price",
-            "purchased_at",
-            "created_at",
-        ]
-        extra_kwargs = {
-            "quantity": {"source": "quantity_value"},
-            "price": {"source": "price_value"},
         }
