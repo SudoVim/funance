@@ -1,3 +1,6 @@
 [submodule "subs/SudoVim/funance-data"]
 	path = subs/SudoVim/funance-data
 	url = https://github.com/SudoVim/funance-data.git
+[submodule "subs/SudoVim/django-helpers"]
+	path = subs/SudoVim/django-helpers
+	url = https://github.com/SudoVim/django-helpers.git

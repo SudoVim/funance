@@ -25,6 +25,9 @@ class HoldingAccount(models.Model):
     #: Name of the account
     name = models.CharField(max_length=64)
 
+    #: The unique account number
+    number = models.CharField(max_length=32)
+
     class Currency(models.TextChoices):
         USD = ("US", _("USD"))
 
@@ -58,6 +61,24 @@ class HoldingAccount(models.Model):
                 self.name,
             ]
         )
+
+
+class HoldingAccountAlias(models.Model):
+    """
+    An alias representing a mapping of a discoverable symbol to a symbol that
+    we recognize.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    holding_account = models.ForeignKey["HoldingAccount"](
+        "HoldingAccount",
+        on_delete=models.CASCADE,
+        related_name="aliases",
+    )
+
+    discoverable = models.CharField(max_length=16)
+    alias = models.CharField(max_length=16)
 
 
 class HoldingAccountPurchase(models.Model):
@@ -172,7 +193,16 @@ class HoldingAccountDocument(models.Model):
     )
 
     class DocumentType(models.TextChoices):
-        pass
+        STATEMENT = "statement"
+        ACTIVITY = "activity"
+
+    document_type = models.CharField(
+        max_length=16,
+        choices=DocumentType.choices,
+        default=DocumentType.ACTIVITY,
+    )
+
+    order = models.PositiveIntegerField(blank=True, null=True)
 
     @override
     def __str__(self) -> str:

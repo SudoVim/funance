@@ -7,6 +7,7 @@
       "**/tests/**",
       "**/test_*",
       "funance_data/**",
+      "django_helpers/**",
       "subs/**",
       "**/migrations",
       "manage.py"
