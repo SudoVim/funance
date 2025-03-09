@@ -13,7 +13,7 @@ start:
 
 .PHONY: run-debug
 run-debug:
-	$(DOCKER_COMPOSE) run -ti -p 8000:8000 web python manage.py runserver 0.0.0.0:8000
+	$(DOCKER_COMPOSE) run -ti -p 8005:8005 web python manage.py runserver 0.0.0.0:8005
 
 .PHONY: stop
 stop:
@@ -56,7 +56,7 @@ lint: ruff-check pyright
 
 .PHONY: format
 format:
-	$(DOCKER_COMPOSE_RUN_NO_DEPS) web ruff check --select I
+	$(DOCKER_COMPOSE_RUN_NO_DEPS) web ruff check --select I --fix
 	$(DOCKER_COMPOSE_RUN_NO_DEPS) web ruff format
 
 .PHONY: fastci
@@ -64,7 +64,7 @@ fastci: format lint test-fast
 
 .PHONY: migrate
 migrate:
-	$(DOCKER_COMPOSE_RUN) web python manage.py locked_migrate
+	$(DOCKER_COMPOSE_RUN) web python manage.py migrate
 
 .PHONY: migrations
 migrations:
