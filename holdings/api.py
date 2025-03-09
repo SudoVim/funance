@@ -1,17 +1,23 @@
+from typing import Any
+
+from django.db.models import QuerySet
 from rest_framework import mixins, viewsets
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.routers import BaseRouter
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.routers import BaseRouter
+from rest_framework.serializers import BaseSerializer
+from typing_extensions import override
 
 from tickers.models import Ticker
 
-from .models import HoldingAccountPurchase
+from .models import HoldingAccount, HoldingAccountPurchase
 from .serializers import (
-    HoldingAccountSerializer,
-    HoldingAccountPurchaseSerializer,
     CreateHoldingAccountPurchaseSerializer,
     HoldingAccountPurchaseRequestSerializer,
+    HoldingAccountPurchaseSerializer,
+    HoldingAccountSerializer,
 )
 
 
@@ -29,20 +35,28 @@ class HoldingAccountViewSet(
     serializer_class = HoldingAccountSerializer
     permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
-        return self.request.user.holding_accounts.order_by("name").all()
+    @override
+    def get_queryset(self) -> QuerySet[HoldingAccount]:
+        return (
+            HoldingAccount.objects.filter(
+                owner=self.request.user,
+            )
+            .order_by("name")
+            .all()
+        )
 
-    def perform_create(self, serializer):
+    @override
+    def perform_create(self, serializer: BaseSerializer) -> None:
         serializer.save(owner=self.request.user)
 
     @action(detail=True, methods=["post"])
-    def create_purchase(self, request, pk=None):
+    def create_purchase(self, request: Request, pk: Any = None):
         """
         Create and return a new purchase for the specified holding account
         """
         ha = self.get_object()
         serializer = CreateHoldingAccountPurchaseSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        _ = serializer.is_valid(raise_exception=True)
         ticker, _ = Ticker.objects.get_or_create(
             symbol=serializer.validated_data["ticker"]
         )
@@ -67,7 +81,8 @@ class HoldingAccountPurchaseViewSet(
     serializer_class = HoldingAccountPurchaseSerializer
     permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
+    @override
+    def get_queryset(self) -> QuerySet[HoldingAccountPurchase]:
         return (
             HoldingAccountPurchase.objects.filter(
                 holding_account__owner=self.request.user
@@ -76,11 +91,14 @@ class HoldingAccountPurchaseViewSet(
             .all()
         )
 
-    def filter_queryset(self, queryset):
+    @override
+    def filter_queryset(
+        self, queryset: QuerySet[HoldingAccountPurchase]
+    ) -> QuerySet[HoldingAccountPurchase]:
         serializer = HoldingAccountPurchaseRequestSerializer(
             data=self.request.query_params
         )
-        serializer.is_valid()
+        _ = serializer.is_valid()
 
         holding_account_pk = serializer.validated_data.get("holding_account")
         if holding_account_pk:

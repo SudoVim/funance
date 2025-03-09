@@ -1,15 +1,15 @@
-import pytz
 import datetime
 
+import pytz
 from django.test import TestCase
-from rest_framework.test import APIRequestFactory, force_authenticate
-from rest_framework.exceptions import ErrorDetail
 from knox.models import AuthToken
+from rest_framework.exceptions import ErrorDetail
+from rest_framework.test import APIRequestFactory, force_authenticate
 
-from tickers.models import Ticker
 from accounts.models import Account
+from tickers.models import Ticker
 
-from .api import HoldingAccountViewSet, HoldingAccountPurchaseViewSet
+from .api import HoldingAccountPurchaseViewSet, HoldingAccountViewSet
 from .models import HoldingAccount
 
 

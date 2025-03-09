@@ -1,0 +1,55 @@
+[tool.poetry]
+name = "funance"
+version = "0.1.0"
+description = ""
+authors = ["Michael Renken <michaelarenken@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+django = "<6,>=5"
+djangorestframework = "<4,>=3.13.1"
+django-cors-headers = "<4,>=3.13.0"
+celery = "<6,>=5.2.7"
+python-dateutil = "<3,>=2.8.2"
+elasticsearch = "<9,>=8.13.1"
+numpy = "<2,>=1.23.0"
+pandas = "<2,>=1.4.3"
+pandas-datareader = "<0.11,>=0.10.0"
+django-rest-knox = "<5,>=4.2.0"
+yfinance = "<0.3,>=0.2.38"
+python-dotenv = "<2,>=1.0.1"
+psycopg2 = "<3,>=2.9.9"
+dateparser = "^1.2.1"
+
+
+[tool.poetry.group.dev.dependencies]
+black = "<23,>=22.6.0"
+pip-check-updates = "<0.24,>=0.23.0"
+mypy = "<2,>=1.10.0"
+types-pytz = "*"
+ruff = "^0.9.10"
+basedpyright = "^1.10.2"
+djangorestframework-types = "*"
+django-types = "*"
+tblib = "^3.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+exclude = [".git", ".venv", "migrations", "funance_data", "subs"]
+
+
+[tool.ruff.lint]
+ignore = [
+  "F401", # explicit re-export from __init__.py
+  "F403", # * used, not able to detect undefined names
+  "E741", # ambiguous variable name
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/test_*.py" = [
+  "F841", # ignored unused local variables in tests
+]

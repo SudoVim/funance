@@ -1,11 +1,13 @@
-from django.urls import path
 from django.contrib.auth import login
-from knox.views import LoginView, LogoutView, LogoutAllView
-from rest_framework import permissions, status
+from django.http import HttpResponse
+from django.urls import path
+from knox.views import LoginView, LogoutAllView, LogoutView
+from rest_framework import permissions
+from rest_framework.authtoken.serializers import AuthTokenSerializer
+from rest_framework.generics import GenericAPIView
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.generics import GenericAPIView
-from rest_framework.authtoken.serializers import AuthTokenSerializer
+from typing_extensions import override
 
 from api.mixins import APIMixin
 
@@ -17,12 +19,13 @@ class LoginAPI(LoginView):
     handler for logging in to the application
     """
 
-    authentication_classes: list = []
+    authentication_classes = []
     permission_classes = [permissions.AllowAny]
 
-    def post(self, request, format=None):
+    @override
+    def post(self, request: Request, format: str | None = None) -> HttpResponse:
         serializer = AuthTokenSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        _ = serializer.is_valid(raise_exception=True)
         user = serializer.validated_data["user"]
 
         login(request, user)

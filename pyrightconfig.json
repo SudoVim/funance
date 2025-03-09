@@ -1,0 +1,19 @@
+{
+  "venvPath": ".",
+  "exclude": [
+      "**/node_modules",
+      "**/__pycache__",
+      "**/.*",
+      "**/tests/**",
+      "**/test_*",
+      "funance_data/**",
+      "subs/**",
+      "**/migrations",
+      "manage.py"
+  ],
+  "reportUnannotatedClassAttribute": false,
+  "reportIncompatibleVariableOverride": false,
+  "reportExplicitAny": false,
+  "reportAny": false,
+  "reportUnusedParameter": false
+}

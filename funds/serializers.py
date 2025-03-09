@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from tickers.models import Ticker
+from tickers.models import TICKER_LENGTH
 from tickers.serializers import TickerSerializer
 
 from .models import Fund, FundAllocation
@@ -20,7 +20,7 @@ class FundSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class CreateFundAllocationSerializer(serializers.ModelSerializer):
-    ticker = serializers.CharField(max_length=Ticker.symbol.field.max_length)
+    ticker = serializers.CharField(max_length=TICKER_LENGTH)
 
     class Meta:
         model = FundAllocation

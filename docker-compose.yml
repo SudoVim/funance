@@ -2,20 +2,17 @@ volumes:
   postgres-data:
   elastic-data:
 
-version: '3'
 services:
   web:
     build: .
     depends_on:
       - db
       - redis
-      - elastic
+        #- elastic
     volumes:
-      - .:/funance
+      - .:/code
     ports:
       - "8005:8005"
-    environment:
-      PIPENV_VENV_IN_PROJECT: 1
   db:
     image: postgres:14
     environment:
@@ -24,16 +21,9 @@ services:
       - postgres-data:/var/lib/postgresql/data
   redis:
     image: redis:6
-  celery:
-    build: .
-    command: pipenv run celery -A funance worker --loglevel=info
-    depends_on:
-      - redis
-    volumes:
-      - .:/funance
-  elastic:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
-    environment:
-      - discovery.type=single-node
-    volumes:
-      - elastic-data:/usr/share/elasticsearch/data
+        #  elastic:
+        #    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+        #    environment:
+        #      - discovery.type=single-node
+        #    volumes:
+        #      - elastic-data:/usr/share/elasticsearch/data
