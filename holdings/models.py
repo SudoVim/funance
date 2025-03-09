@@ -1,13 +1,11 @@
 import uuid
 from decimal import Decimal
-from typing import Literal
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from typing_extensions import override
 
 from accounts.models import Account
-from tickers.models import Ticker
 
 
 class HoldingAccount(models.Model):
@@ -52,6 +50,17 @@ class HoldingAccount(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    aliases: models.QuerySet["HoldingAccountAlias"]  # pyright: ignore[reportUninitializedInstanceVariable]
+    documents: models.QuerySet["HoldingAccountDocument"]  # pyright: ignore[reportUninitializedInstanceVariable]
+    positions: models.QuerySet["HoldingAccountPosition"]  # pyright: ignore[reportUninitializedInstanceVariable]
+
+    @property
+    def aliases_dict(self) -> dict[str, str]:
+        """
+        The symbol aliases associated with this account.
+        """
+        return {a.discoverable: a.alias for a in self.aliases.all()}
+
     @override
     def __str__(self) -> str:
         return "  ".join(
@@ -81,78 +90,69 @@ class HoldingAccountAlias(models.Model):
     alias = models.CharField(max_length=16)
 
 
-class HoldingAccountPurchase(models.Model):
+class HoldingAccountPosition(models.Model):
     """
-    The HoldingPurchase model represents a single purchase on a holding
-    account, which is a point-in-time purchase of a ticker at a price.
+    Model representing a position of a :class:`HoldingAccount`.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
     holding_account = models.ForeignKey["HoldingAccount"](
         "HoldingAccount",
         on_delete=models.CASCADE,
-        related_name="purchases",
+        related_name="positions",
     )
 
-    @property
-    def account_name(self) -> str:
-        """
-        Name of the associated account.
-        """
-        return self.holding_account.name
+    ticker_symbol = models.CharField(max_length=16)
 
-    ticker = models.ForeignKey[Ticker](
-        "tickers.Ticker",
+    actions: models.QuerySet["HoldingAccountAction"]  # pyright: ignore[reportUninitializedInstanceVariable]
+
+    class Meta:
+        unique_together = "holding_account", "ticker_symbol"
+
+
+class HoldingAccountAction(models.Model):
+    """
+    The HoldingAccountAction model represents a single action taken on a
+    position - generally "buy" or "sell".
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    position = models.ForeignKey["HoldingAccountPosition"](
+        "HoldingAccountPosition",
         on_delete=models.CASCADE,
-        related_name="holding_account_purchases",
+        related_name="actions",
     )
 
-    @property
-    def ticker_symbol(self) -> str:
-        """
-        Ticker symbol represented by this purchase.
-        """
-        return self.ticker.symbol
+    purchased_on = models.DateField()
 
-    Operation = Literal["BUY", "SELL"]
+    class Action(models.TextChoices):
+        BUY = "buy"
+        SELL = "sell"
 
-    @property
-    def operation(self) -> Operation:
-        """
-        Operation performed.
-        """
-        if self.quantity >= 0:
-            return "BUY"
-
-        return "SELL"
+    action = models.CharField(max_length=16, choices=Action.choices)
 
     #: The quantity of the security to buy. I gave this eight decimal places in
     #  case the security can be bought in fractions. Bitcoin, for instance, can
     #  be bought in hundred millionths.
     quantity = models.DecimalField(max_digits=32, decimal_places=8)
 
-    @property
-    def quantity_value(self):
-        return float(self.quantity)
-
-    @property
-    def abs_quantity_value(self):
-        return abs(self.quantity_value)
-
     #: The price of the security at purchase time.
     price = models.DecimalField(max_digits=32, decimal_places=8)
-
-    @property
-    def price_value(self):
-        return float(self.price)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    purchased_at = models.DateTimeField()
 
     @override
     def __str__(self) -> str:
         return str(self.id)
+
+    class Meta:
+        unique_together = "position", "purchased_on", "action", "quantity", "price"
 
 
 def holding_account_document_upload_to(

@@ -135,7 +135,7 @@ class ActivityParser:
         """
         Modify the given *positions* based on the parsed *row*.
         """
-        if self.account_number is not None:
+        if self.account_number is not None and "Account Number" in row:
             account_number = row["Account Number"].strip()
             if account_number != self.account_number:
                 return
