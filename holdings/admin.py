@@ -8,13 +8,15 @@ from typing_extensions import override
 
 from django_helpers.admin import DHModelAdmin
 from django_helpers.links import get_admin_list_url
-from holdings.account import parse_positions, sync_actions
+from holdings.account import parse_positions, sync_positions
 from holdings.models import (
     HoldingAccount,
     HoldingAccountAction,
     HoldingAccountAlias,
     HoldingAccountDocument,
+    HoldingAccountGeneration,
     HoldingAccountPosition,
+    HoldingAccountSale,
 )
 
 
@@ -52,7 +54,10 @@ class HoldingAccountAdmin(DHModelAdmin[HoldingAccount]):
         HoldingAccountPositionInline,
     )
     readonly_fields = ("links", "action_buttons")
-    change_actions = ("parse_positions",)
+    change_actions = (
+        "reset_positions",
+        "parse_positions",
+    )
 
     def links(self, obj: HoldingAccount) -> str:
         return format_html_join(
@@ -68,8 +73,51 @@ class HoldingAccountAdmin(DHModelAdmin[HoldingAccount]):
                         "Documents",
                     )
                 ],
+                [
+                    self.generate_link(
+                        get_admin_list_url(
+                            HoldingAccountAction,
+                            {"position__holding_account__id__exact": obj.pk},
+                        ),
+                        "Actions",
+                    )
+                ],
+                [
+                    self.generate_link(
+                        get_admin_list_url(
+                            HoldingAccountSale,
+                            {"position__holding_account__id__exact": obj.pk},
+                        ),
+                        "Sales",
+                    )
+                ],
+                [
+                    self.generate_link(
+                        get_admin_list_url(
+                            HoldingAccountGeneration,
+                            {"position__holding_account__id__exact": obj.pk},
+                        ),
+                        "Generations",
+                    )
+                ],
             ],
         )
+
+    def reset_positions(self, request: HttpRequest, pk: Any) -> HttpResponse:
+        """
+        Parse positions represented in the attached documents.
+        """
+        obj = self.get_object(request, pk)
+        if not obj:
+            self.message_user(
+                request,
+                "Object not found.",
+                level="ERROR",
+            )
+            return self.redirect_referrer(request)
+
+        _ = obj.positions.all().delete()
+        return self.redirect_referrer(request)
 
     def parse_positions(self, request: HttpRequest, pk: Any) -> HttpResponse:
         """
@@ -85,7 +133,7 @@ class HoldingAccountAdmin(DHModelAdmin[HoldingAccount]):
             return self.redirect_referrer(request)
 
         positions = parse_positions(obj)
-        sync_actions(obj, positions)
+        sync_positions(obj, positions)
         return self.redirect_referrer(request)
 
 
@@ -94,31 +142,37 @@ class HoldingAccountDocumentAdmin(admin.ModelAdmin):  # pyright: ignore[reportMi
     list_display = ("__str__", "holding_account", "document_type", "created_at")
 
 
-class HoldingAccountActionInline(admin.TabularInline[HoldingAccountAction]):
-    model = HoldingAccountAction
-    extra = 0
-
-    @override
-    def get_queryset(self, request: HttpRequest) -> QuerySet[HoldingAccountAction]:
-        return super().get_queryset(request).order_by("-purchased_on")
-
-    @override
-    def has_add_permission(self, request: HttpRequest, *args: Any) -> bool:
-        return False
-
-    @override
-    def has_change_permission(
-        self, request: HttpRequest, obj: HoldingAccountAction | None = None
-    ) -> bool:
-        return False
-
-    @override
-    def has_delete_permission(
-        self, request: HttpRequest, obj: HoldingAccountAction | None = None
-    ) -> bool:
-        return False
-
-
 @admin.register(HoldingAccountPosition)
 class HoldingAccountPositionAdmin(DHModelAdmin[HoldingAccountPosition]):
-    inlines = (HoldingAccountActionInline,)
+    list_filter = ("holding_account",)
+
+
+@admin.register(HoldingAccountAction)
+class HoldingAccountActionAdmin(DHModelAdmin[HoldingAccountAction]):
+    list_filter = ("position__holding_account",)
+
+
+@admin.register(HoldingAccountSale)
+class HoldingAccountSaleAdmin(DHModelAdmin[HoldingAccountSale]):
+    list_filter = ("position__holding_account",)
+    list_display = (
+        "ticker_symbol",
+        "quantity",
+        "purchase_date",
+        "purchase_price",
+        "sale_date",
+        "sale_price",
+        "profit",
+    )
+
+    @override
+    def get_queryset(self, request: HttpRequest) -> QuerySet[HoldingAccountSale]:
+        return super().get_queryset(request).order_by("-sale_date")
+
+    def ticker_symbol(self, obj: HoldingAccountSale) -> str:
+        return obj.position.ticker_symbol
+
+
+@admin.register(HoldingAccountGeneration)
+class HoldingAccountGenerationAdmin(DHModelAdmin[HoldingAccountGeneration]):
+    list_filter = ("position__holding_account",)

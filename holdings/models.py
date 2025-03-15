@@ -6,6 +6,7 @@ from django.utils.translation import gettext_lazy as _
 from typing_extensions import override
 
 from accounts.models import Account
+from holdings.positions import PositionAction, PositionSale
 
 
 class HoldingAccount(models.Model):
@@ -109,6 +110,8 @@ class HoldingAccountPosition(models.Model):
     ticker_symbol = models.CharField(max_length=16)
 
     actions: models.QuerySet["HoldingAccountAction"]  # pyright: ignore[reportUninitializedInstanceVariable]
+    sales: models.QuerySet["HoldingAccountSale"]  # pyright: ignore[reportUninitializedInstanceVariable]
+    generations: models.QuerySet["HoldingAccountGeneration"]  # pyright: ignore[reportUninitializedInstanceVariable]
 
     class Meta:
         unique_together = "holding_account", "ticker_symbol"
@@ -147,12 +150,123 @@ class HoldingAccountAction(models.Model):
     #: The price of the security at purchase time.
     price = models.DecimalField(max_digits=32, decimal_places=8)
 
+    @property
+    def position_action(self) -> PositionAction:
+        """
+        Action object representing this database entry.
+        """
+        return PositionAction(
+            self.position.ticker_symbol,
+            self.purchased_on,
+            self.action,  # pyright: ignore[reportArgumentType]
+            self.quantity,
+            self.price,
+        )
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["purchased_on"]),
+        ]
+
+
+class HoldingAccountSale(models.Model):
+    """
+    The HoldingAccountSale model represents a single sale taken on a position
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    position = models.ForeignKey["HoldingAccountPosition"](
+        "HoldingAccountPosition",
+        on_delete=models.CASCADE,
+        related_name="sales",
+    )
+
+    quantity = models.DecimalField(max_digits=32, decimal_places=8)
+
+    purchase_date = models.DateField()
+
+    purchase_price = models.DecimalField(max_digits=32, decimal_places=8)
+
+    sale_date = models.DateField()
+
+    sale_price = models.DecimalField(max_digits=32, decimal_places=8)
+
+    @override
+    def __str__(self) -> str:
+        return str(self.id)
+
+    @property
+    def position_sale(self) -> PositionSale:
+        """
+        :class:`PositionSale` object representing this database entry.
+        """
+        return PositionSale(
+            self.position.ticker_symbol,
+            self.quantity,
+            self.purchase_date,
+            self.purchase_price,
+            self.sale_date,
+            self.sale_price,
+        )
+
+    @property
+    def profit(self) -> Decimal:
+        return self.position_sale.profit()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["purchase_date"]),
+            models.Index(fields=["sale_date"]),
+        ]
+
+
+class HoldingAccountGeneration(models.Model):
+    """
+    The HoldingAccountGeneration model represents a single capital generation
+    for a position - generally dividends or interest events"
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    position = models.ForeignKey["HoldingAccountPosition"](
+        "HoldingAccountPosition",
+        on_delete=models.CASCADE,
+        related_name="generations",
+    )
+
+    date = models.DateField()
+
+    class Event(models.TextChoices):
+        DIVIDEND = "dividend"
+        LONG_TERM_CAP_GAIN = "long-term-cap-gain"
+        SHORT_TERM_CAP_GAIN = "short-term-cap-gain"
+        INTEREST = "interest"
+        ROYALTY_PAYMENT = "royalty-payment"
+        RETURN_OF_CAPITAL = "return-of-capital"
+        FOREIGN_TAX = "foreign-tax"
+        FEE = "fee"
+
+    event = models.CharField(max_length=32, choices=Event.choices)
+
+    amount = models.DecimalField(max_digits=32, decimal_places=8)
+
+    cost_basis = models.DecimalField(max_digits=32, decimal_places=8)
+
     @override
     def __str__(self) -> str:
         return str(self.id)
 
     class Meta:
-        unique_together = "position", "purchased_on", "action", "quantity", "price"
+        indexes = [
+            models.Index(fields=["date"]),
+        ]
 
 
 def holding_account_document_upload_to(
