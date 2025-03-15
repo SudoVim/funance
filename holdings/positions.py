@@ -214,7 +214,6 @@ GenerationType = Literal[
     "long-term-cap-gain",
     "short-term-cap-gain",
     "interest",
-    "distribution",
     "royalty-payment",
     "return-of-capital",
     "foreign-tax",
