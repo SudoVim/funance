@@ -17,19 +17,37 @@ class GenerationList(
     """
     Abstraction for operations that can be performed on a ``list`` of
     :class:`PositionGeneration` s.
+
+    .. automethod:: total_profit
+    .. automethod:: average_interest
     """
 
     Pythonic = PositionGenerationList
+
+    def total_profit(self) -> Decimal:
+        """
+        Total profit of all contained generations.
+        """
+        return Decimal(sum(g.amount for g in self))
+
+    def frequency(self, days: int) -> Decimal:
+        """
+        Calculate the frequency of our :class:`PositionGeneration` s.
+        """
+        return Decimal(len(self)) / days * Decimal("365.25")
 
     def average_interest(self, days: int) -> Decimal:
         """
         Calculate the average interest for our :class:`PositionGeneration` s.
         """
-        frequency = Decimal(len(self)) / days * Decimal("365.25")
-        average_percentage = Decimal(
-            sum((g.position_percentage() * g.cost_basis) for g in self)
-        ) / sum(g.cost_basis for g in self)
-        return average_percentage * frequency
+        denominator = sum(g.cost_basis for g in self)
+        if denominator == 0:
+            return Decimal("0")
+        average_percentage = (
+            Decimal(sum((g.position_percentage() * g.cost_basis) for g in self))
+            / denominator
+        )
+        return average_percentage * self.frequency(days)
 
     @override
     def append(self, item: PositionGeneration) -> bool:
