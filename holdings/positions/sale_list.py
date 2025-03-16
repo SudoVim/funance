@@ -16,6 +16,7 @@ class SaleList(Sequence[PositionSale], Pythonable[SaleListList], Copyable):
 
     .. automethod:: append
     .. automethod:: clear
+    .. automethod:: total_profit
     .. automethod:: average_interest
     """
 
@@ -38,14 +39,21 @@ class SaleList(Sequence[PositionSale], Pythonable[SaleListList], Copyable):
         """
         self._sales = []
 
+    def total_profit(self) -> Decimal:
+        """
+        Total profit of all contained sales.
+        """
+        return Decimal(sum(s.profit() for s in self))
+
     def average_interest(self) -> Decimal:
         """
         Calculate the average interest for our contained :class:`PositionSale`
         s.
         """
-        return Decimal(sum([(s.interest() * s.profit()) for s in self])) / sum(
-            [s.profit() for s in self]
-        )
+        denominator = sum([s.profit() for s in self])
+        if denominator == 0:
+            return Decimal("0")
+        return Decimal(sum([(s.interest() * s.profit()) for s in self])) / denominator
 
     @override
     def to_python(self) -> Pythonic:

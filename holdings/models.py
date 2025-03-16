@@ -1,13 +1,18 @@
+import datetime
 import uuid
 from decimal import Decimal
 
 from django.db import models
+from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from typing_extensions import override
 
 from accounts.models import Account
 from holdings.positions.action import PositionAction
+from holdings.positions.generation import PositionGeneration
+from holdings.positions.generation_list import GenerationList
 from holdings.positions.sale import PositionSale
+from holdings.positions.sale_list import SaleList
 
 
 class HoldingAccount(models.Model):
@@ -116,6 +121,62 @@ class HoldingAccountPosition(models.Model):
 
     class Meta:
         unique_together = "holding_account", "ticker_symbol"
+
+    @cached_property
+    def sale_list(self) -> SaleList:
+        """
+        :class:`SaleList` representing all sales
+        """
+        return SaleList(s.position_sale for s in self.sales.all())
+
+    @cached_property
+    def total_sale_profit(self) -> Decimal:
+        return self.sale_list.total_profit()
+
+    @cached_property
+    def average_sale_interest(self) -> Decimal:
+        return self.sale_list.average_interest()
+
+    @cached_property
+    def generation_list(self) -> GenerationList:
+        """
+        :class:`GenerationList` representing all generations
+        """
+        return GenerationList(g.position_generation for g in self.generations.all())
+
+    @cached_property
+    def total_generation_profit(self) -> Decimal:
+        return self.generation_list.total_profit()
+
+    @cached_property
+    def first_purchase(self) -> datetime.date | None:
+        if self.actions.count() == 0:
+            return None
+        return min(a.purchased_on for a in self.actions.all())
+
+    @cached_property
+    def generation_frequency(self) -> Decimal:
+        first_purchase = self.first_purchase
+        if first_purchase is None:
+            return Decimal("0")
+        today = datetime.date.today()
+        return self.generation_list.frequency((today - first_purchase).days)
+
+    @cached_property
+    def average_generation_interest(self) -> Decimal:
+        first_purchase = self.first_purchase
+        if first_purchase is None:
+            return Decimal("0")
+        today = datetime.date.today()
+        return self.generation_list.average_interest((today - first_purchase).days)
+
+    @cached_property
+    def total_profit(self) -> Decimal:
+        return self.total_sale_profit + self.total_generation_profit
+
+    @cached_property
+    def total_interest(self) -> Decimal:
+        return self.average_sale_interest + self.average_generation_interest
 
 
 class HoldingAccountAction(models.Model):
@@ -263,6 +324,16 @@ class HoldingAccountGeneration(models.Model):
     @override
     def __str__(self) -> str:
         return str(self.id)
+
+    @property
+    def position_generation(self) -> PositionGeneration:
+        return PositionGeneration(
+            self.position.ticker_symbol,
+            self.date,
+            self.event,  # pyright: ignore[reportArgumentType]
+            self.amount,
+            self.cost_basis,
+        )
 
     class Meta:
         indexes = [
