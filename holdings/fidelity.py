@@ -11,7 +11,7 @@ import dateparser
 
 from holdings.documents import DocumentParser
 from holdings.models import HoldingAccountDocument
-from holdings.positions import PositionGeneration, PositionSet
+from holdings.positions import PositionSet
 from holdings.positions.action import PositionAction
 
 
@@ -274,12 +274,10 @@ class ActivityParser:
         Add cash interest generation denoted by the given *row*.
         """
         positions.add_generation(
-            PositionGeneration(
-                "CASH",
-                self.parse_date(row["Run Date"].strip()),
-                "interest",
-                Decimal(row["Amount"].strip()),
-            ),
+            "CASH",
+            self.parse_date(row["Run Date"].strip()),
+            "interest",
+            Decimal(row["Amount"].strip()),
             offset_cash=False,
         )
 
@@ -290,12 +288,10 @@ class ActivityParser:
         Add long term capital gain generation from the given *row*.
         """
         positions.add_generation(
-            PositionGeneration(
-                self.apply_alias(row["Symbol"].strip()),
-                self.parse_date(row["Run Date"].strip()),
-                "long-term-cap-gain",
-                Decimal(row["Amount"].strip()),
-            ),
+            self.apply_alias(row["Symbol"].strip()),
+            self.parse_date(row["Run Date"].strip()),
+            "long-term-cap-gain",
+            Decimal(row["Amount"].strip()),
         )
 
     def add_short_term_cap_gain(
@@ -305,12 +301,10 @@ class ActivityParser:
         Add short term capital gain generation from the given *row*.
         """
         positions.add_generation(
-            PositionGeneration(
-                self.apply_alias(row["Symbol"].strip()),
-                self.parse_date(row["Run Date"].strip()),
-                "short-term-cap-gain",
-                Decimal(row["Amount"].strip()),
-            ),
+            self.apply_alias(row["Symbol"].strip()),
+            self.parse_date(row["Run Date"].strip()),
+            "short-term-cap-gain",
+            Decimal(row["Amount"].strip()),
         )
 
     def add_dividend(self, positions: PositionSet, row: dict[str, str]) -> None:
@@ -318,12 +312,10 @@ class ActivityParser:
         Add dividend generation from the given *row*.
         """
         positions.add_generation(
-            PositionGeneration(
-                self.apply_alias(row["Symbol"].strip()),
-                self.parse_date(row["Run Date"].strip()),
-                "dividend",
-                Decimal(row["Amount"].strip()),
-            ),
+            self.apply_alias(row["Symbol"].strip()),
+            self.parse_date(row["Run Date"].strip()),
+            "dividend",
+            Decimal(row["Amount"].strip()),
         )
 
     def add_bond_interest(self, positions: PositionSet, row: dict[str, str]) -> None:
@@ -331,12 +323,10 @@ class ActivityParser:
         Add interest generation from the given *row*.
         """
         positions.add_generation(
-            PositionGeneration(
-                self.apply_alias(row["Symbol"].strip()),
-                self.parse_date(row["Run Date"].strip()),
-                "interest",
-                Decimal(row["Amount"].strip()),
-            ),
+            self.apply_alias(row["Symbol"].strip()),
+            self.parse_date(row["Run Date"].strip()),
+            "interest",
+            Decimal(row["Amount"].strip()),
         )
 
     def add_reinvestment(self, positions: PositionSet, row: dict[str, str]) -> None:
@@ -525,12 +515,10 @@ class ActivityParser:
         Add a royalty payment
         """
         positions.add_generation(
-            PositionGeneration(
-                self.apply_alias(row["Symbol"].strip()),
-                self.parse_date(row["Run Date"].strip()),
-                "royalty-payment",
-                Decimal(row["Amount"].strip()),
-            ),
+            self.apply_alias(row["Symbol"].strip()),
+            self.parse_date(row["Run Date"].strip()),
+            "royalty-payment",
+            Decimal(row["Amount"].strip()),
         )
 
     def add_return_of_capital(
@@ -540,12 +528,10 @@ class ActivityParser:
         Add a return of capital
         """
         positions.add_generation(
-            PositionGeneration(
-                self.apply_alias(row["Symbol"].strip()),
-                self.parse_date(row["Run Date"].strip()),
-                "return-of-capital",
-                Decimal(row["Amount"].strip()),
-            ),
+            self.apply_alias(row["Symbol"].strip()),
+            self.parse_date(row["Run Date"].strip()),
+            "return-of-capital",
+            Decimal(row["Amount"].strip()),
         )
 
     def add_foreign_tax(self, positions: PositionSet, row: dict[str, str]) -> None:
@@ -553,12 +539,10 @@ class ActivityParser:
         Add foreign tax payment
         """
         positions.add_generation(
-            PositionGeneration(
-                self.apply_alias(row["Symbol"].strip()),
-                self.parse_date(row["Run Date"].strip()),
-                "foreign-tax",
-                Decimal(row["Amount"].strip()),
-            ),
+            self.apply_alias(row["Symbol"].strip()),
+            self.parse_date(row["Run Date"].strip()),
+            "foreign-tax",
+            Decimal(row["Amount"].strip()),
         )
 
     def add_fee(self, positions: PositionSet, row: dict[str, str]) -> None:
@@ -566,10 +550,8 @@ class ActivityParser:
         Add a fee
         """
         positions.add_generation(
-            PositionGeneration(
-                self.apply_alias(row["Symbol"].strip()),
-                self.parse_date(row["Run Date"].strip()),
-                "foreign-tax",
-                Decimal(row["Amount"].strip()),
-            ),
+            self.apply_alias(row["Symbol"].strip()),
+            self.parse_date(row["Run Date"].strip()),
+            "foreign-tax",
+            Decimal(row["Amount"].strip()),
         )
