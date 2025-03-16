@@ -13,118 +13,8 @@ from typing_extensions import override
 from holdings.positions.action import PositionAction
 from holdings.positions.action_list import ActionList
 from holdings.positions.common import Pythonable
-
-
-class PositionSaleDict(TypedDict):
-    symbol: str
-    quantity: Decimal
-    purchase_date: datetime.date
-    purchase_price: Decimal
-    sale_date: datetime.date
-    sale_price: Decimal
-    profit: Decimal
-    interest: Decimal
-
-
-class PositionSale(Pythonable["PositionSaleDict"]):
-    """
-    Object representing the sale of a position.
-    """
-
-    symbol: str
-    quantity: Decimal
-    purchase_date: datetime.date
-    purchase_price: Decimal
-    sale_date: datetime.date
-    sale_price: Decimal
-
-    Pythonic = PositionSaleDict
-
-    def __init__(
-        self,
-        symbol: str,
-        quantity: Decimal,
-        purchase_date: datetime.date,
-        purchase_price: Decimal,
-        sale_date: datetime.date,
-        sale_price: Decimal,
-    ) -> None:
-        self.symbol = symbol
-        self.quantity = quantity
-        self.purchase_date = purchase_date
-        self.purchase_price = purchase_price
-        self.sale_date = sale_date
-        self.sale_price = sale_price
-
-    def copy(self) -> "PositionSale":
-        """
-        Create a copy of this sale.
-        """
-        return self.__class__(
-            self.symbol,
-            self.quantity,
-            self.purchase_date,
-            self.purchase_price,
-            self.sale_date,
-            self.sale_price,
-        )
-
-    def profit(self) -> Decimal:
-        """
-        Calculate the profit from this sale.
-        """
-        return (self.sale_price - self.purchase_price) * self.quantity
-
-    def interest(self) -> Decimal:
-        """
-        Calculate the converted interest of the sale.
-        """
-        days = Decimal((self.sale_date - self.purchase_date).days)
-        year_percent = Decimal("1") if not days else days / Decimal("365.25")
-        return self.profit() / self.quantity / self.purchase_price / year_percent
-
-    @classmethod
-    def average_interest(cls, sales: list["PositionSale"]) -> Decimal:
-        """
-        Calculate the average interest for the given ``list`` of
-        :class:`PositionSale` s
-        """
-        return Decimal(sum([(s.interest() * s.profit()) for s in sales])) / sum(
-            [s.profit() for s in sales]
-        )
-
-    @override
-    def to_python(self) -> Pythonic:
-        """
-        Convert this sale to a pythonic ``dict``.
-        """
-        return {
-            "symbol": self.symbol,
-            "quantity": self.quantity,
-            "purchase_date": self.purchase_date,
-            "purchase_price": self.purchase_price,
-            "sale_date": self.sale_date,
-            "sale_price": self.sale_price,
-            "profit": self.profit(),
-            "interest": self.interest(),
-        }
-
-    @override
-    @classmethod
-    def from_python(cls, raw: Pythonic) -> "PositionSale":
-        """
-        Re-create this sale from the given dict. This is effectively the
-        opposite of the :meth:`to_python` above.
-        """
-        return cls(
-            raw["symbol"],
-            raw["quantity"],
-            raw["purchase_date"],
-            raw["purchase_price"],
-            raw["sale_date"],
-            raw["sale_price"],
-        )
-
+from holdings.positions.sale import PositionSale
+from holdings.positions.sale_list import SaleList
 
 GenerationType = Literal[
     "dividend",
@@ -264,7 +154,7 @@ class Position:
     quantity: Decimal
     cost_basis: Decimal
     available_purchases: collections.deque[PositionAction]
-    sales: collections.deque["PositionSale"]
+    sales: SaleList
 
     class Pythonic(TypedDict):
         symbol: str
@@ -274,26 +164,26 @@ class Position:
         actions: ActionList.Pythonic
         generations: list["PositionGeneration.Pythonic"]
         available_purchases: list["PositionAction.Pythonic"]
-        sales: list["PositionSale.Pythonic"]
+        sales: SaleList.Pythonic
 
     def __init__(
         self,
         symbol: str,
         actions: Iterable[PositionAction] | None = None,
-        generations: list["PositionGeneration"] | None = None,
+        generations: Iterable["PositionGeneration"] | None = None,
         quantity: Decimal | None = None,
         cost_basis: Decimal | None = None,
         available_purchases: collections.deque[PositionAction] | None = None,
-        sales: collections.deque["PositionSale"] | None = None,
+        sales: Iterable[PositionSale] | None = None,
     ) -> None:
         self.symbol = symbol
         self.actions = ActionList(actions or [])
-        self.generations = generations or []
+        self.generations = list(generations or [])
         self.generation_index = {g.key() for g in self.generations}
         self.quantity = quantity or Decimal("0")
         self.cost_basis = cost_basis or Decimal("0")
         self.available_purchases = available_purchases or collections.deque()
-        self.sales = sales or collections.deque()
+        self.sales = SaleList(sales)
 
     def copy(self) -> "Position":
         """
@@ -423,7 +313,7 @@ class Position:
             available_purchases=collections.deque(
                 PositionAction.from_python(a) for a in raw["available_purchases"]
             ),
-            sales=collections.deque(PositionSale.from_python(s) for s in raw["sales"]),
+            sales=SaleList.from_python(raw["sales"]),
         )
 
 

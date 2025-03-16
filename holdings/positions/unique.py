@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
 from typing import Any, Generic, TypeVar, overload
 
-from typing_extensions import override
+from typing_extensions import Self, override
 
 
 class Unique(ABC):
@@ -36,6 +36,10 @@ class UniqueList(Sequence[U], Generic[U]):
         self._item_keys = set(i.key() for i in self._items)
 
     def append(self, item: U) -> bool:
+        """
+        Append the given *item* to the list and return whether or not it was
+        successfully appended.
+        """
         if item.key() in self._item_keys:
             return False
         self._items.append(item)
@@ -53,10 +57,12 @@ class UniqueList(Sequence[U], Generic[U]):
     def __getitem__(self, index: int) -> U: ...
 
     @overload
-    def __getitem__(self, index: slice) -> list[U]: ...
+    def __getitem__(self, index: slice) -> Self: ...
 
     @override
-    def __getitem__(self, index: int | slice) -> U | list[U]:
+    def __getitem__(self, index: int | slice) -> U | Self:
+        if isinstance(index, slice):
+            return self.__class__(self._items[index])
         return self._items[index]
 
     @override
