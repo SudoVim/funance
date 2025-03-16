@@ -6,7 +6,8 @@ from django.utils.translation import gettext_lazy as _
 from typing_extensions import override
 
 from accounts.models import Account
-from holdings.positions import PositionAction, PositionSale
+from holdings.positions import PositionSale
+from holdings.positions.action import PositionAction
 
 
 class HoldingAccount(models.Model):

@@ -4,14 +4,29 @@ Module relating to account positions.
 
 import collections
 import datetime
+from collections.abc import Iterable
 from decimal import Decimal
-from typing import Any, Literal
+from typing import Any, Literal, TypedDict
 
-Action = Literal["buy", "sell"]
-ActionKey = tuple[datetime.date, Action, Decimal, Decimal]
+from typing_extensions import override
+
+from holdings.positions.action import PositionAction
+from holdings.positions.action_list import ActionList
+from holdings.positions.common import Pythonable
 
 
-class PositionSale:
+class PositionSaleDict(TypedDict):
+    symbol: str
+    quantity: Decimal
+    purchase_date: datetime.date
+    purchase_price: Decimal
+    sale_date: datetime.date
+    sale_price: Decimal
+    profit: Decimal
+    interest: Decimal
+
+
+class PositionSale(Pythonable["PositionSaleDict"]):
     """
     Object representing the sale of a position.
     """
@@ -22,6 +37,8 @@ class PositionSale:
     purchase_price: Decimal
     sale_date: datetime.date
     sale_price: Decimal
+
+    Pythonic = PositionSaleDict
 
     def __init__(
         self,
@@ -76,7 +93,8 @@ class PositionSale:
             [s.profit() for s in sales]
         )
 
-    def to_python(self) -> dict[str, Any]:
+    @override
+    def to_python(self) -> Pythonic:
         """
         Convert this sale to a pythonic ``dict``.
         """
@@ -91,122 +109,21 @@ class PositionSale:
             "interest": self.interest(),
         }
 
-
-class PositionAction:
-    """
-    A single action for a position held in an account.
-    """
-
-    symbol: str
-    date: datetime.date
-    action: Action
-    quantity: Decimal
-    price: Decimal
-
-    def __init__(
-        self,
-        symbol: str,
-        date: datetime.date,
-        action: Action,
-        quantity: Decimal,
-        price: Decimal,
-    ) -> None:
-        self.symbol = symbol
-        self.date = date
-        self.action = action
-        self.quantity = quantity
-        self.price = price
-
-    def key(self) -> ActionKey:
-        return self.date, self.action, self.quantity, self.price
-
-    def copy(self) -> "PositionAction":
-        return PositionAction(
-            symbol=self.symbol,
-            date=self.date,
-            action=self.action,
-            quantity=self.quantity,
-            price=self.price,
-        )
-
-    def cash_offset(self) -> "PositionAction":
-        """
-        Create the cash offset for this action.
-        """
-        return self.__class__(
-            symbol="CASH",
-            date=self.date,
-            action="sell" if self.action == "buy" else "buy",
-            quantity=self.quantity * self.price,
-            price=Decimal("1"),
-        )
-
-    def add_split(self, new_symbol: str, proportion: Decimal) -> "PositionAction":
-        """
-        Recalculate this action after a split.
-        """
-        return self.__class__(
-            new_symbol,
-            self.date,
-            self.action,
-            quantity=self.quantity * proportion,
-            price=self.price / proportion,
-        )
-
-    def potential_profit(self, price: Decimal) -> Decimal:
-        """
-        Calculate the potential profit from this sale.
-        """
-        return (price - self.price) * self.quantity
-
-    def potential_interest(self, today: datetime.date, price: Decimal) -> Decimal:
-        """
-        Calculate the converted interest of the sale.
-        """
-        days = Decimal((today - self.date).days)
-        year_percent = Decimal("1") if not days else days / Decimal("365.25")
-        return self.potential_profit(price) / self.quantity / self.price / year_percent
-
+    @override
     @classmethod
-    def total_profit(
-        cls, price: Decimal, available_purchases: list["PositionAction"]
-    ) -> Decimal:
+    def from_python(cls, raw: Pythonic) -> "PositionSale":
         """
-        Determine the total profit of the outstanding position denoted by
-        *available_purchases*.
+        Re-create this sale from the given dict. This is effectively the
+        opposite of the :meth:`to_python` above.
         """
-        return Decimal(sum(a.potential_profit(price) for a in available_purchases))
-
-    @classmethod
-    def average_potential_interest(
-        cls,
-        today: datetime.date,
-        price: Decimal,
-        available_purchases: list["PositionAction"],
-    ) -> Decimal:
-        """
-        Determine the average potential interest of the outstanding position
-        denoted by *available_purchases*.
-        """
-        return Decimal(
-            sum(
-                a.potential_interest(today, price) * a.quantity
-                for a in available_purchases
-            )
-        ) / sum(a.quantity for a in available_purchases)
-
-    def to_python(self) -> dict[str, Any]:
-        """
-        Convert this action to a pythonic ``dict``
-        """
-        return {
-            "symbol": self.symbol,
-            "date": self.date,
-            "action": self.action,
-            "quantity": self.quantity,
-            "price": self.price,
-            "total": self.quantity * self.price,
-        }
+        return cls(
+            raw["symbol"],
+            raw["quantity"],
+            raw["purchase_date"],
+            raw["purchase_price"],
+            raw["sale_date"],
+            raw["sale_price"],
+        )
 
 
 GenerationType = Literal[
@@ -222,7 +139,16 @@ GenerationType = Literal[
 GenerationKey = tuple[datetime.date, GenerationType, Decimal]
 
 
-class PositionGeneration:
+class PositionGenerationDict(TypedDict):
+    symbol: str
+    date: datetime.date
+    generation_type: GenerationType
+    amount: Decimal
+    cost_basis: Decimal | None
+    percent: Decimal
+
+
+class PositionGeneration(Pythonable["PositionGenerationDict"]):
     """
     A single instance of wealth generation associated with a symbol
     """
@@ -232,6 +158,8 @@ class PositionGeneration:
     generation_type: GenerationType
     amount: Decimal
     cost_basis: Decimal
+
+    Pythonic = PositionGenerationDict
 
     def __init__(
         self,
@@ -259,7 +187,7 @@ class PositionGeneration:
             cost_basis=self.cost_basis,
         )
 
-    def cash_offset(self) -> "PositionAction":
+    def cash_offset(self) -> PositionAction:
         """
         Create the cash offset for this generation.
         """
@@ -294,7 +222,8 @@ class PositionGeneration:
         ) / sum(g.cost_basis for g in generations)
         return average_percentage * frequency
 
-    def to_python(self) -> dict[str, Any]:
+    @override
+    def to_python(self) -> Pythonic:
         """
         Convert this generation to a pythonic ``dict``
         """
@@ -303,8 +232,24 @@ class PositionGeneration:
             "date": self.date,
             "generation_type": self.generation_type,
             "amount": self.amount,
+            "cost_basis": self.cost_basis,
             "percent": self.position_percentage(),
         }
+
+    @override
+    @classmethod
+    def from_python(cls, raw: Pythonic) -> "PositionGeneration":
+        """
+        Re-create this generation from the given dict. This is effectively the
+        opposite of the :meth:`to_python` above.
+        """
+        return cls(
+            raw["symbol"],
+            raw["date"],
+            raw["generation_type"],
+            raw["amount"],
+            cost_basis=raw["cost_basis"],
+        )
 
 
 class Position:
@@ -313,32 +258,38 @@ class Position:
     """
 
     symbol: str
-    actions: list["PositionAction"]
-    action_index: set[ActionKey]
+    actions: ActionList
     generations: list["PositionGeneration"]
     generation_index: set["GenerationKey"]
     quantity: Decimal
     cost_basis: Decimal
-    available_purchases: collections.deque["PositionAction"]
+    available_purchases: collections.deque[PositionAction]
     sales: collections.deque["PositionSale"]
+
+    class Pythonic(TypedDict):
+        symbol: str
+        quantity: Decimal
+        cost_basis: Decimal
+        cost_basis_per_share: Decimal
+        actions: ActionList.Pythonic
+        generations: list["PositionGeneration.Pythonic"]
+        available_purchases: list["PositionAction.Pythonic"]
+        sales: list["PositionSale.Pythonic"]
 
     def __init__(
         self,
         symbol: str,
-        actions: list["PositionAction"] | None = None,
-        action_index: set[ActionKey] | None = None,
+        actions: Iterable[PositionAction] | None = None,
         generations: list["PositionGeneration"] | None = None,
-        generation_index: set[GenerationKey] | None = None,
         quantity: Decimal | None = None,
         cost_basis: Decimal | None = None,
-        available_purchases: collections.deque["PositionAction"] | None = None,
+        available_purchases: collections.deque[PositionAction] | None = None,
         sales: collections.deque["PositionSale"] | None = None,
     ) -> None:
         self.symbol = symbol
-        self.actions = actions or []
-        self.action_index = action_index or set()
+        self.actions = ActionList(actions or [])
         self.generations = generations or []
-        self.generation_index = generation_index or set()
+        self.generation_index = {g.key() for g in self.generations}
         self.quantity = quantity or Decimal("0")
         self.cost_basis = cost_basis or Decimal("0")
         self.available_purchases = available_purchases or collections.deque()
@@ -350,10 +301,8 @@ class Position:
         """
         return self.__class__(
             self.symbol,
-            actions=[a.copy() for a in self.actions],
-            action_index={k for k in self.action_index},
+            actions=self.actions.copy(),
             generations=[a.copy() for a in self.generations],
-            generation_index={k for k in self.generation_index},
             quantity=self.quantity,
             cost_basis=self.cost_basis,
             available_purchases=collections.deque(
@@ -362,21 +311,14 @@ class Position:
             sales=collections.deque(s.copy() for s in self.sales),
         )
 
-    def add_action(self, action: "PositionAction") -> None:
+    def add_action(self, action: PositionAction) -> None:
         """
         Add the given *action* to this position.
         """
         assert self.symbol == action.symbol
-
-        if action.key() in self.action_index:
+        if not self.actions.append(action):
             return
 
-        latest_action = None if len(self.actions) == 0 else self.actions[-1]
-        if latest_action and action.date < latest_action.date:
-            return
-
-        self.actions.append(action)
-        self.action_index.add(action.key())
         if action.action == "buy":
             self.available_purchases.append(action.copy())
             self.cost_basis += action.quantity * action.price
@@ -415,8 +357,8 @@ class Position:
         if generation.key() in self.generation_index:
             return
 
-        latest_action = None if len(self.actions) == 0 else self.actions[-1]
-        if latest_action and generation.date < latest_action.date:
+        latest_generation = None if len(self.generations) == 0 else self.generations[-1]
+        if latest_generation and generation.date < latest_generation.date:
             return
 
         generation.cost_basis = self.cost_basis
@@ -431,7 +373,7 @@ class Position:
         self.symbol = new_symbol
         proportion = new_quantity / self.quantity
         self.quantity = new_quantity
-        self.actions = [a.add_split(new_symbol, proportion) for a in self.actions]
+        self.actions = self.actions.add_split(new_symbol, proportion)
         self.available_purchases = collections.deque(
             a.add_split(new_symbol, proportion) for a in self.available_purchases
         )
@@ -444,7 +386,7 @@ class Position:
         new_quantity = self.quantity + new_shares
         proportion = new_quantity / self.quantity
         self.quantity = new_quantity
-        self.actions = [a.add_split(self.symbol, proportion) for a in self.actions]
+        self.actions = self.actions.add_split(self.symbol, proportion)
         self.available_purchases = collections.deque(
             a.add_split(self.symbol, proportion) for a in self.available_purchases
         )
@@ -454,15 +396,35 @@ class Position:
         Convert this position to a pythonic ``dict``
         """
         return {
+            "symbol": self.symbol,
             "quantity": self.quantity,
             "cost_basis": self.cost_basis,
             "cost_basis_per_share": (
                 Decimal("0") if not self.quantity else self.cost_basis / self.quantity
             ),
-            "actions": [a.to_python() for a in self.actions],
+            "actions": self.actions.to_python(),
             "generations": [a.to_python() for a in self.generations],
+            "available_purchases": [a.to_python() for a in self.available_purchases],
             "sales": [s.to_python() for s in self.sales],
         }
+
+    @classmethod
+    def from_python(cls, raw: Pythonic) -> "Position":
+        """
+        Re-create this sale from the given dict. This is effectively the
+        opposite of the :meth:`to_python` above.
+        """
+        return cls(
+            raw["symbol"],
+            actions=ActionList.from_python(raw["actions"]),
+            generations=[PositionGeneration.from_python(g) for g in raw["generations"]],
+            quantity=raw["quantity"],
+            cost_basis=raw["cost_basis"],
+            available_purchases=collections.deque(
+                PositionAction.from_python(a) for a in raw["available_purchases"]
+            ),
+            sales=collections.deque(PositionSale.from_python(s) for s in raw["sales"]),
+        )
 
 
 class PositionSet:
@@ -483,7 +445,7 @@ class PositionSet:
         """
         return self.__class__({k: p.copy() for k, p in self.positions.items()})
 
-    def add_action(self, action: "PositionAction", offset_cash: bool = True) -> None:
+    def add_action(self, action: PositionAction, offset_cash: bool = True) -> None:
         """
         Add the given *action* to this set of positions.
         """

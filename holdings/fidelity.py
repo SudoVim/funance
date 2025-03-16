@@ -11,7 +11,8 @@ import dateparser
 
 from holdings.documents import DocumentParser
 from holdings.models import HoldingAccountDocument
-from holdings.positions import PositionAction, PositionGeneration, PositionSet
+from holdings.positions import PositionGeneration, PositionSet
+from holdings.positions.action import PositionAction
 
 
 class StatementParser:
