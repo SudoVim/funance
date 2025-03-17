@@ -11,8 +11,13 @@ import dateparser
 
 from holdings.documents import DocumentParser
 from holdings.models import HoldingAccountDocument
-from holdings.positions import PositionSet
-from holdings.positions.action import PositionAction
+from holdings.positions.position import (
+    AddBuyResponse,
+    AddGenerationResponse,
+    AddSaleResponse,
+)
+from holdings.positions.position_set import PositionSet
+from holdings.positions.sale_list import SaleList
 
 
 class StatementParser:
@@ -41,34 +46,36 @@ class StatementParser:
 
         # Parse "normal" positions from the core account
         positions = PositionSet()
-        for action in self.parse_actions_from_lines(
+        _ = self.parse_actions_from_lines(
+            positions,
             statement_date,
             self.parser.lines_between("Core Account", "Subtotal of")[1:],
-        ):
-            positions.add_action(action, offset_cash=False)
+        )
 
         # Parse mutual fund positions
-        for action in self.parse_actions_from_lines(
+        _ = self.parse_actions_from_lines(
+            positions,
             statement_date,
             self.parser.lines_between("Mutual Funds", "Subtotal of")[1:],
-        ):
-            positions.add_action(action, offset_cash=False)
+        )
 
         return positions
 
     def parse_actions_from_lines(
-        self, statement_date: datetime.date, lines: list[str]
-    ) -> list[PositionAction]:
+        self,
+        positions: PositionSet,
+        statement_date: datetime.date,
+        lines: list[str],
+    ) -> list[AddBuyResponse]:
         """
         Parse a ``list`` of :class:`PositionAction` s from the given *lines*.
         """
-        ret: list[PositionAction] = []
-        for symbol, description, qty, price, _, _, cost_basis in csv.reader(lines):
-            ret.append(
-                PositionAction(
+
+        def iter_actions():
+            for symbol, description, qty, price, _, _, cost_basis in csv.reader(lines):
+                yield positions.add_buy(
                     symbol.strip() or description.strip(),
                     statement_date,
-                    "buy",
                     Decimal(qty),
                     (
                         Decimal(price)
@@ -76,9 +83,8 @@ class StatementParser:
                         else Decimal(cost_basis) / Decimal(qty)
                     ),
                 )
-            )
 
-        return ret
+        return list(iter_actions())
 
 
 class ActivityParser:
@@ -152,55 +158,55 @@ class ActivityParser:
             return
 
         if action.startswith("INTEREST EARNED CASH"):
-            self.add_cash_interest(positions, row)
+            _ = self.add_cash_interest(positions, row)
             return
 
         if action.startswith("LONG-TERM CAP GAIN"):
-            self.add_long_term_cap_gain(positions, row)
+            _ = self.add_long_term_cap_gain(positions, row)
             return
 
         if action.startswith("SHORT-TERM CAP GAIN"):
-            self.add_short_term_cap_gain(positions, row)
+            _ = self.add_short_term_cap_gain(positions, row)
             return
 
         if action.startswith("DIVIDEND RECEIVED"):
-            self.add_dividend(positions, row)
+            _ = self.add_dividend(positions, row)
             return
 
         if action.startswith("DIVIDEND ADJUSTMENT"):
-            self.add_dividend(positions, row)
+            _ = self.add_dividend(positions, row)
             return
 
         if action.startswith("MUNI TAXABLE INT"):
-            self.add_bond_interest(positions, row)
+            _ = self.add_bond_interest(positions, row)
             return
 
         if action.startswith("INTEREST"):
-            self.add_bond_interest(positions, row)
+            _ = self.add_bond_interest(positions, row)
             return
 
         if action.startswith("REINVESTMENT"):
-            self.add_reinvestment(positions, row)
+            _ = self.add_reinvestment(positions, row)
             return
 
         if action.startswith("YOU BOUGHT"):
-            self.add_buy(positions, row)
+            _ = self.add_buy(positions, row)
             return
 
         if action.startswith("YOU SOLD"):
-            self.add_sale(positions, row)
+            _ = self.add_sale(positions, row)
             return
 
         if action.startswith("Electronic Funds Transfer Received"):
-            self.add_eft(positions, row)
+            _ = self.add_eft(positions, row)
             return
 
         if action.startswith("OTHER DEBIT transfer"):
-            self.add_debit_transfer(positions, row)
+            _ = self.add_debit_transfer(positions, row)
             return
 
         if action.startswith("OTHER CREDIT transfer"):
-            self.add_credit_transfer(positions, row)
+            _ = self.add_credit_transfer(positions, row)
             return
 
         # I don't have a way to interpret this, so let's just ignore it for
@@ -209,49 +215,46 @@ class ActivityParser:
             return
 
         if action.startswith("REVERSE SPLIT R/S FROM"):
-            self.add_reverse_split(positions, row)
+            _ = self.add_reverse_split(positions, row)
             return
 
         if action.startswith("MERGER MER FROM"):
-            self.add_merger_split(positions, row)
+            _ = self.add_merger_split(positions, row)
             return
 
         if action.startswith("IN LIEU OF FRX SHARE LEU PAYOUT"):
-            self.add_reverse_split_payout(positions, row)
+            _ = self.add_reverse_split_payout(positions, row)
             return
 
         if action.startswith("MERGER MER PAYOUT"):
-            self.add_merger_payout(positions, row)
+            _ = self.add_merger_payout(positions, row)
             return
 
         if action.startswith("REDEMPTION PAYOUT"):
-            self.add_redemption_payout(positions, row)
+            _ = self.add_redemption_payout(positions, row)
             return
 
         if action.startswith("DISTRIBUTION"):
-            self.add_distribution(positions, row)
+            _ = self.add_distribution(positions, row)
             return
 
         if action.startswith("ROYALTY TR PYMT"):
-            self.add_royalty_payment(positions, row)
+            _ = self.add_royalty_payment(positions, row)
             return
 
         if action.startswith("RETURN OF CAPITAL"):
-            self.add_return_of_capital(positions, row)
+            _ = self.add_return_of_capital(positions, row)
             return
 
         if action.startswith("FOREIGN TAX PAID"):
-            self.add_foreign_tax(positions, row)
+            _ = self.add_foreign_tax(positions, row)
             return
 
         if action.startswith("FEE CHARGED"):
-            self.add_fee(positions, row)
+            _ = self.add_fee(positions, row)
             return
 
-        import pdb
-
-        pdb.set_trace()
-        pass
+        raise AssertionError(f"Unknown action: {action}")
 
     @staticmethod
     def parse_date(date_str: str) -> datetime.date:
@@ -269,11 +272,13 @@ class ActivityParser:
         """
         return self.aliases.get(symbol, symbol)
 
-    def add_cash_interest(self, positions: PositionSet, row: dict[str, str]) -> None:
+    def add_cash_interest(
+        self, positions: PositionSet, row: dict[str, str]
+    ) -> AddGenerationResponse:
         """
         Add cash interest generation denoted by the given *row*.
         """
-        positions.add_generation(
+        return positions.add_generation(
             "CASH",
             self.parse_date(row["Run Date"].strip()),
             "interest",
@@ -283,11 +288,11 @@ class ActivityParser:
 
     def add_long_term_cap_gain(
         self, positions: PositionSet, row: dict[str, str]
-    ) -> None:
+    ) -> AddGenerationResponse:
         """
         Add long term capital gain generation from the given *row*.
         """
-        positions.add_generation(
+        return positions.add_generation(
             self.apply_alias(row["Symbol"].strip()),
             self.parse_date(row["Run Date"].strip()),
             "long-term-cap-gain",
@@ -296,55 +301,58 @@ class ActivityParser:
 
     def add_short_term_cap_gain(
         self, positions: PositionSet, row: dict[str, str]
-    ) -> None:
+    ) -> AddGenerationResponse:
         """
         Add short term capital gain generation from the given *row*.
         """
-        positions.add_generation(
+        return positions.add_generation(
             self.apply_alias(row["Symbol"].strip()),
             self.parse_date(row["Run Date"].strip()),
             "short-term-cap-gain",
             Decimal(row["Amount"].strip()),
         )
 
-    def add_dividend(self, positions: PositionSet, row: dict[str, str]) -> None:
+    def add_dividend(
+        self, positions: PositionSet, row: dict[str, str]
+    ) -> AddGenerationResponse:
         """
         Add dividend generation from the given *row*.
         """
-        positions.add_generation(
+        return positions.add_generation(
             self.apply_alias(row["Symbol"].strip()),
             self.parse_date(row["Run Date"].strip()),
             "dividend",
             Decimal(row["Amount"].strip()),
         )
 
-    def add_bond_interest(self, positions: PositionSet, row: dict[str, str]) -> None:
+    def add_bond_interest(
+        self, positions: PositionSet, row: dict[str, str]
+    ) -> AddGenerationResponse:
         """
         Add interest generation from the given *row*.
         """
-        positions.add_generation(
+        return positions.add_generation(
             self.apply_alias(row["Symbol"].strip()),
             self.parse_date(row["Run Date"].strip()),
             "interest",
             Decimal(row["Amount"].strip()),
         )
 
-    def add_reinvestment(self, positions: PositionSet, row: dict[str, str]) -> None:
+    def add_reinvestment(
+        self, positions: PositionSet, row: dict[str, str]
+    ) -> AddBuyResponse:
         """
         Add reinvestment from a recent generation gain back into the position
         that generated it.
         """
-        positions.add_action(
-            PositionAction(
-                self.apply_alias(row["Symbol"].strip()),
-                self.parse_date(row["Run Date"].strip()),
-                "buy",
-                Decimal(row["Quantity"].strip()),
-                Decimal(row["Price"].strip()),
-            ),
+        return positions.add_buy(
+            self.apply_alias(row["Symbol"].strip()),
+            self.parse_date(row["Run Date"].strip()),
+            Decimal(row["Quantity"].strip()),
+            Decimal(row["Price"].strip()),
         )
 
-    def add_buy(self, positions: PositionSet, row: dict[str, str]) -> None:
+    def add_buy(self, positions: PositionSet, row: dict[str, str]) -> AddBuyResponse:
         """
         Add a buy
         """
@@ -356,72 +364,61 @@ class ActivityParser:
         if "BDS" in action_toks or "CD" in action_toks:
             quantity /= 100
 
-        positions.add_action(
-            PositionAction(
-                self.apply_alias(row["Symbol"].strip()),
-                self.parse_date(row["Run Date"].strip()),
-                "buy",
-                price,
-                quantity,
-            ),
+        return positions.add_buy(
+            self.apply_alias(row["Symbol"].strip()),
+            self.parse_date(row["Run Date"].strip()),
+            price,
+            quantity,
         )
 
-    def add_sale(self, positions: PositionSet, row: dict[str, str]) -> None:
+    def add_sale(self, positions: PositionSet, row: dict[str, str]) -> AddSaleResponse:
         """
         Add a sale
         """
-        positions.add_action(
-            PositionAction(
-                self.apply_alias(row["Symbol"].strip()),
-                self.parse_date(row["Run Date"].strip()),
-                "sell",
-                Decimal(row["Quantity"].strip()) * -1,
-                Decimal(row["Price"].strip()),
-            ),
+        return positions.add_sale(
+            self.apply_alias(row["Symbol"].strip()),
+            self.parse_date(row["Run Date"].strip()),
+            Decimal(row["Quantity"].strip()) * -1,
+            Decimal(row["Price"].strip()),
         )
 
-    def add_eft(self, positions: PositionSet, row: dict[str, str]) -> None:
+    def add_eft(self, positions: PositionSet, row: dict[str, str]) -> AddBuyResponse:
         """
         Add an EFT
         """
-        positions.add_action(
-            PositionAction(
-                "CASH",
-                self.parse_date(row["Run Date"].strip()),
-                "buy",
-                Decimal(row["Amount"].strip()),
-                Decimal("1"),
-            ),
+        return positions.add_buy(
+            "CASH",
+            self.parse_date(row["Run Date"].strip()),
+            Decimal(row["Amount"].strip()),
+            Decimal("1"),
             offset_cash=False,
         )
 
-    def add_debit_transfer(self, positions: PositionSet, row: dict[str, str]) -> None:
+    def add_debit_transfer(
+        self, positions: PositionSet, row: dict[str, str]
+    ) -> AddSaleResponse:
         """
         Add a transfer
         """
-        positions.add_action(
-            PositionAction(
-                "CASH",
-                self.parse_date(row["Run Date"].strip()),
-                "sell",
-                Decimal(row["Amount"].strip()) * -1,
-                Decimal("1"),
-            ),
+        return positions.add_sale(
+            "CASH",
+            self.parse_date(row["Run Date"].strip()),
+            Decimal(row["Amount"].strip()) * -1,
+            Decimal("1"),
             offset_cash=False,
         )
 
-    def add_credit_transfer(self, positions: PositionSet, row: dict[str, str]) -> None:
+    def add_credit_transfer(
+        self, positions: PositionSet, row: dict[str, str]
+    ) -> AddBuyResponse:
         """
         Add a transfer
         """
-        positions.add_action(
-            PositionAction(
-                "CASH",
-                self.parse_date(row["Run Date"].strip()),
-                "buy",
-                Decimal(row["Amount"].strip()) * -1,
-                Decimal("1"),
-            ),
+        return positions.add_buy(
+            "CASH",
+            self.parse_date(row["Run Date"].strip()),
+            Decimal(row["Amount"].strip()) * -1,
+            Decimal("1"),
             offset_cash=False,
         )
 
@@ -443,78 +440,68 @@ class ActivityParser:
 
     def add_reverse_split_payout(
         self, positions: PositionSet, row: dict[str, str]
-    ) -> None:
+    ) -> AddSaleResponse:
         """
         Add a reverse split payout (not enough shares to reverse split)
         """
         symbol = self.apply_alias(row["Symbol"].strip())
-        if symbol not in positions.positions.keys():
-            return
+        if symbol not in positions:
+            return None, SaleList()
 
         from_symbol = row["Action"].strip().split("#")[0].split()[-1]
         amount = Decimal(row["Amount"].strip()) * -1
-        quantity = positions.positions[from_symbol].quantity
-        positions.add_action(
-            PositionAction(
-                from_symbol,
-                self.parse_date(row["Run Date"].strip()),
-                "sell",
-                quantity,
-                amount / quantity,
-            ),
+        quantity = positions[from_symbol].quantity
+        return positions.add_sale(
+            from_symbol,
+            self.parse_date(row["Run Date"].strip()),
+            quantity,
+            amount / quantity,
         )
 
-    def add_merger_payout(self, positions: PositionSet, row: dict[str, str]) -> None:
+    def add_merger_payout(
+        self, positions: PositionSet, row: dict[str, str]
+    ) -> AddSaleResponse:
         """
         Add a merger payout (ownership of company changed and opted to pay out
         its public investors)
         """
-        symbol = self.apply_alias(row["Symbol"].strip())
-        if symbol not in positions.positions.keys():
-            return
-
-        positions.add_action(
-            PositionAction(
-                symbol,
-                self.parse_date(row["Run Date"].strip()),
-                "sell",
-                Decimal(row["Quantity"].strip()) * -1,
-                Decimal(row["Price"].strip()),
-            ),
+        return positions.add_sale(
+            self.apply_alias(row["Symbol"].strip()),
+            self.parse_date(row["Run Date"].strip()),
+            Decimal(row["Quantity"].strip()) * -1,
+            Decimal(row["Price"].strip()),
         )
 
     def add_redemption_payout(
         self, positions: PositionSet, row: dict[str, str]
-    ) -> None:
+    ) -> AddSaleResponse:
         """
         Add a redemption payout (bond or CD has matured)
         """
-        symbol = self.apply_alias(row["Symbol"].strip())
-        if symbol not in positions.positions.keys():
-            return
-
-        positions.add_action(
-            PositionAction(
-                symbol,
-                self.parse_date(row["Run Date"].strip()),
-                "sell",
-                Decimal(row["Quantity"].strip()) * -1,
-                Decimal(row["Price"].strip()),
-            ),
+        return positions.add_sale(
+            self.apply_alias(row["Symbol"].strip()),
+            self.parse_date(row["Run Date"].strip()),
+            Decimal(row["Quantity"].strip()) * -1,
+            Decimal(row["Price"].strip()),
         )
 
-    def add_distribution(self, positions: PositionSet, row: dict[str, str]) -> None:
+    def add_distribution(
+        self, positions: PositionSet, row: dict[str, str]
+    ) -> AddGenerationResponse:
         """
         Add a distribution
         """
-        symbol = row["Symbol"].strip()
-        positions.add_distribution(symbol, Decimal(row["Quantity"].strip()))
+        return positions.add_distribution(
+            row["Symbol"].strip(), Decimal(row["Quantity"].strip())
+        )
 
-    def add_royalty_payment(self, positions: PositionSet, row: dict[str, str]) -> None:
+    def add_royalty_payment(
+        self, positions: PositionSet, row: dict[str, str]
+    ) -> AddGenerationResponse:
         """
         Add a royalty payment
         """
-        positions.add_generation(
+        return positions.add_generation(
             self.apply_alias(row["Symbol"].strip()),
             self.parse_date(row["Run Date"].strip()),
             "royalty-payment",
@@ -523,33 +510,37 @@ class ActivityParser:
 
     def add_return_of_capital(
         self, positions: PositionSet, row: dict[str, str]
-    ) -> None:
+    ) -> AddGenerationResponse:
         """
         Add a return of capital
         """
-        positions.add_generation(
+        return positions.add_generation(
             self.apply_alias(row["Symbol"].strip()),
             self.parse_date(row["Run Date"].strip()),
             "return-of-capital",
             Decimal(row["Amount"].strip()),
         )
 
-    def add_foreign_tax(self, positions: PositionSet, row: dict[str, str]) -> None:
+    def add_foreign_tax(
+        self, positions: PositionSet, row: dict[str, str]
+    ) -> AddGenerationResponse:
         """
         Add foreign tax payment
         """
-        positions.add_generation(
+        return positions.add_generation(
             self.apply_alias(row["Symbol"].strip()),
             self.parse_date(row["Run Date"].strip()),
             "foreign-tax",
             Decimal(row["Amount"].strip()),
         )
 
-    def add_fee(self, positions: PositionSet, row: dict[str, str]) -> None:
+    def add_fee(
+        self, positions: PositionSet, row: dict[str, str]
+    ) -> AddGenerationResponse:
         """
         Add a fee
         """
-        positions.add_generation(
+        return positions.add_generation(
             self.apply_alias(row["Symbol"].strip()),
             self.parse_date(row["Run Date"].strip()),
             "foreign-tax",
