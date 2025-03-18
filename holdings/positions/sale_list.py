@@ -33,6 +33,12 @@ class SaleList(Sequence[PositionSale], Pythonable[SaleListList], Copyable):
         """
         self._sales.append(sale)
 
+    def extend(self, sales: Iterable[PositionSale]) -> None:
+        """
+        Extend the given *sales* to this list.
+        """
+        self._sales.extend(sales)
+
     def clear(self) -> None:
         """
         Clear out this list of sales

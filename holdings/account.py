@@ -9,7 +9,8 @@ from holdings.models import (
     HoldingAccountPosition,
     HoldingAccountSale,
 )
-from holdings.positions import Position, PositionSet
+from holdings.positions.position import Position
+from holdings.positions.position_set import PositionSet
 
 
 def parse_positions(self: HoldingAccount) -> PositionSet:
@@ -44,7 +45,7 @@ def sync_positions(self: HoldingAccount, positions: PositionSet) -> None:
     """
     Sync actions for the given *positions*.
     """
-    for position in positions.positions.values():
+    for position in positions.values():
         ha_position, _ = self.positions.get_or_create(ticker_symbol=position.symbol)
         sync_position_actions(ha_position, position)
         sync_position_sales(ha_position, position)
