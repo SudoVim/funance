@@ -4,7 +4,6 @@ from typing import Literal, TypedDict
 
 from typing_extensions import override
 
-from holdings.positions.action import PositionAction
 from holdings.positions.common import Copyable, Pythonable
 from holdings.positions.unique import Unique
 
@@ -34,7 +33,6 @@ class PositionGeneration(Pythonable["PositionGenerationDict"], Copyable, Unique)
     """
     A single instance of wealth generation associated with a symbol
 
-    .. automethod:: cash_offset
     .. automethod:: position_percentage
     """
 
@@ -59,18 +57,6 @@ class PositionGeneration(Pythonable["PositionGenerationDict"], Copyable, Unique)
         self.generation_type = generation_type
         self.amount = amount
         self.cost_basis = cost_basis
-
-    def cash_offset(self) -> PositionAction:
-        """
-        Create the cash offset for this generation.
-        """
-        return PositionAction(
-            symbol="CASH",
-            date=self.date,
-            action="buy",
-            quantity=self.amount,
-            price=Decimal("1"),
-        )
 
     def position_percentage(self) -> Decimal:
         """

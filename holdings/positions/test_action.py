@@ -18,21 +18,6 @@ class PositionActionTestCase(TestCase):
         )
 
 
-class CashOffsetTests(PositionActionTestCase):
-    def test(self) -> None:
-        self.assertEqual(
-            {
-                "action": "sell",
-                "date": datetime.date(2025, 3, 15),
-                "price": Decimal("1"),
-                "quantity": Decimal("703.68"),
-                "symbol": "CASH",
-                "total": Decimal("703.68"),
-            },
-            self.action.cash_offset().to_python(),
-        )
-
-
 class AddSplitTests(PositionActionTestCase):
     def test_split(self) -> None:
         self.assertEqual(
