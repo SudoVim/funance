@@ -70,13 +70,25 @@ class Position(Pythonable["PositionDict"], Copyable):
         """
         Add a buy action with the given inputs
         """
-        action = PositionAction(self.symbol, date, "sell", quantity, price)
+        action = PositionAction(self.symbol, date, "buy", quantity, price)
         if not self.actions.append(action):
             return None
 
-        self.available_purchases.append(action)
+        self.available_purchases.append(action.copy())
         self.cost_basis += action.quantity * action.price
         self.quantity += action.quantity
+        return action
+
+    def assert_add_buy(
+        self, date: datetime.date, quantity: Decimal, price: Decimal
+    ) -> PositionAction:
+        """
+        Add a buy action with the given inputs and assert that it was added
+        """
+        action = self.add_buy(date, quantity, price)
+        if action is None:
+            raise ValueError("Buy action was added out of order")
+
         return action
 
     def add_sale(
@@ -91,10 +103,22 @@ class Position(Pythonable["PositionDict"], Copyable):
 
         sales = self.available_purchases.offset_sale(date, price, quantity)
         for sale in sales:
-            self.cost_basis -= sale.quantity * price
+            self.cost_basis -= sale.quantity * sale.purchase_price
             self.quantity -= sale.quantity
 
         return action, sales
+
+    def assert_add_sale(
+        self, date: datetime.date, quantity: Decimal, price: Decimal
+    ) -> tuple[PositionAction, SaleList]:
+        """
+        Add a sell action with the given inputs and assert that it was added
+        """
+        action, sale_list = self.add_sale(date, quantity, price)
+        if action is None:
+            raise ValueError("Sell action was added out of order")
+
+        return action, sale_list
 
     def add_generation(
         self,
@@ -144,9 +168,6 @@ class Position(Pythonable["PositionDict"], Copyable):
 
     @override
     def to_python(self) -> Pythonic:
-        """
-        Convert this position to a pythonic ``dict``
-        """
         return {
             "symbol": self.symbol,
             "quantity": self.quantity,
@@ -163,10 +184,6 @@ class Position(Pythonable["PositionDict"], Copyable):
     @override
     @classmethod
     def from_python(cls, raw: Pythonic) -> "Position":
-        """
-        Re-create this sale from the given dict. This is effectively the
-        opposite of the :meth:`to_python` above.
-        """
         return cls(
             raw["symbol"],
             actions=ActionList.from_python(raw["actions"]),
@@ -181,9 +198,6 @@ class Position(Pythonable["PositionDict"], Copyable):
 
     @override
     def copy(self) -> "Position":
-        """
-        Copy this position information.
-        """
         return self.__class__(
             self.symbol,
             actions=self.actions.copy(),

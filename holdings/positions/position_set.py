@@ -26,26 +26,11 @@ class PositionSet(Mapping[str, Position], Pythonable["PositionSetDict"], Copyabl
     """
 
     _positions: dict[str, Position]
-    latest_date = datetime.date | None
 
     Pythonic = PositionSetDict
 
     def __init__(self, positions: dict[str, Position] | None = None) -> None:
         self._positions = positions or {}
-        self.latest_date = None
-
-    def can_add_action_with_date(self, date: datetime.date) -> bool:
-        """
-        Check to see if we can add an action with the given *date* just in case
-        we are already past a certain point in time.
-        """
-        if self.latest_date is None:
-            self.latest_date = date
-
-        if self.latest_date > date:  # pyright: ignore[reportOperatorIssue]
-            return False
-
-        return True
 
     def add_buy(
         self,
@@ -58,9 +43,6 @@ class PositionSet(Mapping[str, Position], Pythonable["PositionSetDict"], Copyabl
         """
         Add a buy action to this position set
         """
-        if not self.can_add_action_with_date(date):
-            return None
-
         action = self.ensure_position(symbol).add_buy(date, quantity, price)
         if action is None:
             return None
@@ -87,9 +69,6 @@ class PositionSet(Mapping[str, Position], Pythonable["PositionSetDict"], Copyabl
         """
         Add a sell action to this position set
         """
-        if not self.can_add_action_with_date(date):
-            return None, SaleList()
-
         action, sale_list = self.ensure_position(symbol).add_sale(date, quantity, price)
         if action is None:
             return None, SaleList()
@@ -116,9 +95,6 @@ class PositionSet(Mapping[str, Position], Pythonable["PositionSetDict"], Copyabl
         """
         Add the given *generation* to this set of positions.
         """
-        if not self.can_add_action_with_date(date):
-            return None
-
         generation = self.ensure_position(symbol).add_generation(
             date, generation_type, amount
         )

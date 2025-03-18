@@ -58,6 +58,7 @@ class AvailablePurchases(
                     date,
                     price,
                 )
+                found_quantity += delta_quantity
                 purchase.quantity -= delta_quantity
                 if purchase.quantity == 0:
                     _ = self._actions.popleft()

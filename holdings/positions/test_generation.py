@@ -19,21 +19,6 @@ class PositionGenerationTestCase(TestCase):
         )
 
 
-class CashOffsetTests(PositionGenerationTestCase):
-    def test(self) -> None:
-        self.assertEqual(
-            {
-                "action": "buy",
-                "date": datetime.date(2025, 3, 16),
-                "price": Decimal("1"),
-                "quantity": Decimal("20.00"),
-                "symbol": "CASH",
-                "total": Decimal("20.00"),
-            },
-            self.generation.cash_offset().to_python(),
-        )
-
-
 class PositionPercentageTests(PositionGenerationTestCase):
     def test(self) -> None:
         self.assertEqual(

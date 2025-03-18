@@ -29,6 +29,12 @@ class PositionAction(
 ):
     """
     A single action for a position held in an account.
+
+    .. automethod:: add_split
+    .. automethod:: potential_profit
+    .. automethod:: potential_interest
+    .. automethod:: total_profit
+    .. automethod:: average_potential_interest
     """
 
     Pythonic = PositionActionDict
@@ -53,18 +59,6 @@ class PositionAction(
         self.action = action
         self.quantity = quantity
         self.price = price
-
-    def cash_offset(self) -> "PositionAction":
-        """
-        Create the cash offset for this action.
-        """
-        return self.__class__(
-            symbol="CASH",
-            date=self.date,
-            action="sell" if self.action == "buy" else "buy",
-            quantity=self.quantity * self.price,
-            price=Decimal("1"),
-        )
 
     def add_split(self, new_symbol: str, proportion: Decimal) -> "PositionAction":
         """
