@@ -49,6 +49,7 @@ def sync_positions(self: HoldingAccount, positions: PositionSet) -> None:
         ha_position, _ = self.positions.get_or_create(ticker_symbol=position.symbol)
         sync_position_actions(ha_position, position)
         sync_position_sales(ha_position, position)
+        shore_up_buy_actions(ha_position)
         sync_position_generations(ha_position, position)
 
 
@@ -68,6 +69,14 @@ def sync_position_actions(self: HoldingAccountPosition, position: Position) -> N
                 purchased_on=action.date,
                 action=action.action,
                 quantity=action.quantity,
+                remaining_quantity=(
+                    action.quantity
+                    if action.action == HoldingAccountAction.Action.BUY
+                    else None
+                ),
+                has_remaining_quantity=(
+                    True if action.action == HoldingAccountAction.Action.BUY else False
+                ),
                 price=action.price.quantize(Decimal("0.00000001")),
             )
 
@@ -95,6 +104,41 @@ def sync_position_sales(self: HoldingAccountPosition, position: Position) -> Non
             )
 
     _ = self.sales.bulk_create(get_sales_insert())
+
+
+def shore_up_buy_actions(self: HoldingAccountPosition) -> None:
+    """
+    Shore up buy actions by marking up the remaining quantity
+    """
+
+    def get_spent_buys():
+        remaining_sales = Decimal(sum(s.quantity for s in self.sales.iterator()))
+        for buy in (
+            self.actions.filter(action=HoldingAccountAction.Action.BUY)
+            .order_by("purchased_on")
+            .iterator()
+        ):
+            next_remaining_sales = remaining_sales - buy.quantity
+
+            if next_remaining_sales > 0:
+                buy.remaining_quantity = Decimal("0")
+                buy.has_remaining_quantity = False
+                yield buy
+                remaining_sales = next_remaining_sales
+                continue
+
+            buy.remaining_quantity = -next_remaining_sales
+            buy.has_remaining_quantity = buy.remaining_quantity > 0  # pyright: ignore[reportOptionalOperand]
+            yield buy
+            break
+
+    _ = self.actions.bulk_update(
+        get_spent_buys(),
+        fields=[
+            "remaining_quantity",
+            "has_remaining_quantity",
+        ],
+    )
 
 
 def sync_position_generations(self: HoldingAccountPosition, position: Position) -> None:
