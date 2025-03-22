@@ -114,6 +114,12 @@ class HoldingAccountPosition(models.Model):
     )
 
     ticker_symbol = models.CharField(max_length=16)
+    ticker = models.ForeignKey(
+        "tickers.Ticker",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
 
     actions: models.QuerySet["HoldingAccountAction"]  # pyright: ignore[reportUninitializedInstanceVariable]
     sales: models.QuerySet["HoldingAccountSale"]  # pyright: ignore[reportUninitializedInstanceVariable]
@@ -205,9 +211,17 @@ class HoldingAccountAction(models.Model):
     action = models.CharField(max_length=16, choices=Action.choices)
 
     #: The quantity of the security to buy. I gave this eight decimal places in
-    #  case the security can be bought in fractions. Bitcoin, for instance, can
-    #  be bought in hundred millionths.
+    #: case the security can be bought in fractions. Bitcoin, for instance, can
+    #: be bought in hundred millionths.
     quantity = models.DecimalField(max_digits=32, decimal_places=8)
+
+    #: The remaining quantity for "buy" actions that haven't yet been used for
+    #: "sell" actions.
+    remaining_quantity = models.DecimalField(
+        max_digits=32, decimal_places=8, blank=True, null=True
+    )
+
+    has_remaining_quantity = models.BooleanField(default=True)
 
     #: The price of the security at purchase time.
     price = models.DecimalField(max_digits=32, decimal_places=8)
@@ -228,6 +242,8 @@ class HoldingAccountAction(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=["purchased_on"]),
+            models.Index(fields=["action"]),
+            models.Index(fields=["has_remaining_quantity"]),
         ]
 
 

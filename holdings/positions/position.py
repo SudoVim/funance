@@ -105,6 +105,7 @@ class Position(Pythonable["PositionDict"], Copyable):
         for sale in sales:
             self.cost_basis -= sale.quantity * sale.purchase_price
             self.quantity -= sale.quantity
+            self.sales.append(sale)
 
         return action, sales
 

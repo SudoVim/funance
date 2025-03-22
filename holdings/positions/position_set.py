@@ -115,8 +115,9 @@ class PositionSet(Mapping[str, Position], Pythonable["PositionSetDict"], Copyabl
         Rebalance positions by adding a split.
         """
         position = self._positions[from_symbol]
-        self._positions[to_symbol] = position
-        del self._positions[from_symbol]
+        if from_symbol != to_symbol:
+            self._positions[to_symbol] = position
+            del self._positions[from_symbol]
 
         position.add_split(to_symbol, new_quantity)
 

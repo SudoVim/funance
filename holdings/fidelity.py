@@ -82,6 +82,7 @@ class StatementParser:
                         if cost_basis == "not applicable"
                         else Decimal(cost_basis) / Decimal(qty)
                     ),
+                    offset_cash=False,
                 )
 
         return list(iter_actions())
@@ -128,9 +129,11 @@ class ActivityParser:
                 return date, 1
             if row["Action"].strip().startswith("LONG-TERM CAP GAIN"):
                 return date, 2
+
+            # Last
             if row["Action"].strip().startswith("REINVESTMENT"):
-                return date, 3
-            return date, 2
+                return date, 11
+            return date, 10
 
         rows = sorted(list(csv.DictReader(lines)), key=key)
         for row in rows:
@@ -435,7 +438,7 @@ class ActivityParser:
         Add a merger split.
         """
         symbol = self.apply_alias(row["Symbol"].strip())
-        from_symbol = row["Action"].strip().split("#")[0].split()[-1]
+        from_symbol = self.apply_alias(row["Action"].strip().split("#")[0].split()[-1])
         positions.add_split(from_symbol, symbol, Decimal(row["Quantity"].strip()))
 
     def add_reverse_split_payout(
@@ -448,7 +451,7 @@ class ActivityParser:
         if symbol not in positions:
             return None, SaleList()
 
-        from_symbol = row["Action"].strip().split("#")[0].split()[-1]
+        from_symbol = self.apply_alias(row["Action"].strip().split("#")[0].split()[-1])
         amount = Decimal(row["Amount"].strip()) * -1
         quantity = positions[from_symbol].quantity
         return positions.add_sale(
@@ -465,11 +468,18 @@ class ActivityParser:
         Add a merger payout (ownership of company changed and opted to pay out
         its public investors)
         """
+        # If there is no price, this payout was done in stock in a different
+        # activity entry.
+        price_raw = row["Price"].strip()
+        if not price_raw:
+            return None, SaleList()
+
+        price = Decimal(price_raw)
         return positions.add_sale(
             self.apply_alias(row["Symbol"].strip()),
             self.parse_date(row["Run Date"].strip()),
             Decimal(row["Quantity"].strip()) * -1,
-            Decimal(row["Price"].strip()),
+            price,
         )
 
     def add_redemption_payout(
@@ -492,7 +502,7 @@ class ActivityParser:
         Add a distribution
         """
         return positions.add_distribution(
-            row["Symbol"].strip(), Decimal(row["Quantity"].strip())
+            self.apply_alias(row["Symbol"].strip()), Decimal(row["Quantity"].strip())
         )
 
     def add_royalty_payment(
