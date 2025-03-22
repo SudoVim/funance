@@ -47,3 +47,9 @@ class AverageInterestTests(SaleListTestCase):
         self.assertEqual(
             Decimal("0.1335519839276745354093420392"), self.list[1:].average_interest()
         )
+
+
+class CopyTests(SaleListTestCase):
+    def test(self) -> None:
+        cmp_list = self.list.copy()
+        self.assertEqual(self.list.to_python(), cmp_list.to_python())

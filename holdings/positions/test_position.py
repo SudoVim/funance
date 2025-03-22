@@ -137,7 +137,18 @@ class AddSaleTests(PositionTestCase):
                 "cost_basis_per_share": Decimal("213.49"),
                 "generations": [],
                 "quantity": Decimal("2"),
-                "sales": [],
+                "sales": [
+                    {
+                        "interest": Decimal("11.97597077146470560681999157"),
+                        "profit": Decimal("14.00"),
+                        "purchase_date": datetime.date(2025, 3, 17),
+                        "purchase_price": Decimal("213.49"),
+                        "quantity": Decimal("2"),
+                        "sale_date": datetime.date(2025, 3, 18),
+                        "sale_price": Decimal("220.49"),
+                        "symbol": "AAPL",
+                    },
+                ],
                 "symbol": "AAPL",
             },
             self.position.to_python(),
@@ -313,3 +324,22 @@ class AddDistributionTests(PositionTestCase):
             },
             self.position.to_python(),
         )
+
+
+class CopyTests(PositionTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+
+        _ = self.position.assert_add_buy(
+            datetime.date(2025, 3, 17),
+            Decimal("4"),
+            Decimal("213.49"),
+        )
+        _ = self.position.add_sale(
+            datetime.date(2025, 3, 18),
+            Decimal("2"),
+            Decimal("220.49"),
+        )
+
+    def test(self) -> None:
+        self.assertEqual(self.position.to_python(), self.position.copy().to_python())
