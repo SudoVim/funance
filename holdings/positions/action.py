@@ -86,6 +86,13 @@ class PositionAction(
         year_percent = Decimal("1") if not days else days / Decimal("365.25")
         return self.potential_profit(price) / self.quantity / self.price / year_percent
 
+    @property
+    def investment(self) -> Decimal:
+        """
+        The amount of money invested
+        """
+        return self.quantity * self.price
+
     @classmethod
     def total_profit(
         cls, price: Decimal, available_purchases: list["PositionAction"]

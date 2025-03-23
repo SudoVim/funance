@@ -1,3 +1,4 @@
+import datetime
 from decimal import Decimal
 from typing import Any
 
@@ -43,12 +44,9 @@ class HoldingAccountPositionInline(admin.TabularInline[HoldingAccountPosition]):
     readonly_fields = (
         "ticker_symbol",
         "total_sale_profit",
-        "average_sale_interest",
         "total_generation_profit",
         "generation_frequency",
-        "average_generation_interest",
         "total_profit",
-        "total_interest",
     )
 
     @override
@@ -84,35 +82,11 @@ class HoldingAccountPositionInline(admin.TabularInline[HoldingAccountPosition]):
             ]
         )
 
-    def average_sale_interest(self, obj: HoldingAccountPosition) -> str:
-        return "".join(
-            [
-                str((obj.average_sale_interest * 100).quantize(Decimal("0.01"))),
-                "%",
-            ]
-        )
-
     def generation_frequency(self, obj: HoldingAccountPosition) -> str:
         return "".join(
             [
                 str(obj.generation_frequency.quantize(Decimal("0.01"))),
                 "/yr",
-            ]
-        )
-
-    def average_generation_interest(self, obj: HoldingAccountPosition) -> str:
-        return "".join(
-            [
-                str((obj.average_generation_interest * 100).quantize(Decimal("0.01"))),
-                "%",
-            ]
-        )
-
-    def total_interest(self, obj: HoldingAccountPosition) -> str:
-        return "".join(
-            [
-                str((obj.total_interest * 100).quantize(Decimal("0.01"))),
-                "%",
             ]
         )
 
@@ -213,101 +187,24 @@ class HoldingAccountDocumentAdmin(admin.ModelAdmin):  # pyright: ignore[reportMi
     list_display = ("__str__", "holding_account", "document_type", "created_at")
 
 
-class HoldingAccountSaleInline(admin.TabularInline[HoldingAccountSale]):
-    model = HoldingAccountSale
-    readonly_fields = "profit", "interest"
-
-    @override
-    def get_queryset(self, request: HttpRequest) -> QuerySet[HoldingAccountSale]:
-        return super().get_queryset(request).order_by("-sale_date")
-
-    def profit(self, obj: HoldingAccountSale) -> Decimal:
-        return obj.position_sale.profit().quantize(Decimal("0.001"))
-
-    def interest(self, obj: HoldingAccountSale) -> str:
-        return "".join(
-            [
-                str((obj.position_sale.interest() * 100).quantize(Decimal("0.01"))),
-                "%",
-            ]
-        )
-
-    @override
-    def has_add_permission(
-        self, request: HttpRequest, obj: HoldingAccountPosition | None = None
-    ) -> bool:
-        return False
-
-    @override
-    def has_change_permission(
-        self, request: HttpRequest, obj: HoldingAccountSale | None = None
-    ) -> bool:
-        return False
-
-    @override
-    def has_delete_permission(
-        self, request: HttpRequest, obj: HoldingAccountSale | None = None
-    ) -> bool:
-        return False
-
-
-class HoldingAccountGenerationInline(admin.TabularInline[HoldingAccountGeneration]):
-    model = HoldingAccountGeneration
-    readonly_fields = "amount", "percentage"
-
-    @override
-    def get_queryset(self, request: HttpRequest) -> QuerySet[HoldingAccountGeneration]:
-        return super().get_queryset(request).order_by("-date")
-
-    def amount(self, obj: HoldingAccountGeneration) -> Decimal:
-        return obj.amount.quantize(Decimal("0.001"))
-
-    def percentage(self, obj: HoldingAccountGeneration) -> str:
-        return "".join(
-            [
-                str(
-                    (obj.position_generation.position_percentage() * 100).quantize(
-                        Decimal("0.01")
-                    )
-                ),
-                "%",
-            ]
-        )
-
-    @override
-    def has_add_permission(
-        self, request: HttpRequest, obj: HoldingAccountPosition | None = None
-    ) -> bool:
-        return False
-
-    @override
-    def has_change_permission(
-        self, request: HttpRequest, obj: HoldingAccountGeneration | None = None
-    ) -> bool:
-        return False
-
-    @override
-    def has_delete_permission(
-        self, request: HttpRequest, obj: HoldingAccountGeneration | None = None
-    ) -> bool:
-        return False
-
-
 @admin.register(HoldingAccountPosition)
 class HoldingAccountPositionAdmin(DHModelAdmin[HoldingAccountPosition]):
     list_filter = ("holding_account",)
+    search_fields = ("ticker",)
     readonly_fields = (
         "holding_account",
+        "links",
         "ticker_symbol",
-        "total_sale_profit",
-        "average_sale_interest",
-        "total_generation_profit",
+        "total_sale_profit|dollars",
+        "total_sale_interest|percent",
+        "total_generation_profit|dollars",
         "generation_frequency",
-        "average_generation_interest",
-        "total_profit",
-        "total_interest",
+        "average_generation_interest|percent",
+        "total_profit|dollars",
+        "total_interest|percent",
+        "total_available_profit|dollars",
+        "total_available_interest|percent",
     )
-    inlines = (HoldingAccountSaleInline, HoldingAccountGenerationInline)
 
     @override
     def get_queryset(self, request: HttpRequest) -> QuerySet[HoldingAccountPosition]:
@@ -318,37 +215,58 @@ class HoldingAccountPositionAdmin(DHModelAdmin[HoldingAccountPosition]):
             .order_by("ticker_symbol")
         )
 
-    def total_sale_profit(self, obj: HoldingAccountPosition) -> str:
-        return "".join(
+    def links(self, obj: HoldingAccountPosition) -> str:
+        return format_html_join(
+            " | ",
+            "{}",
             [
-                "$",
-                str(obj.total_sale_profit.quantize(Decimal("0.01"))),
-            ]
+                [
+                    self.generate_link(
+                        get_admin_list_url(
+                            HoldingAccountAction,
+                            {"position__id__exact": obj.pk},
+                        ),
+                        "Actions",
+                    )
+                ],
+                [
+                    self.generate_link(
+                        get_admin_list_url(
+                            HoldingAccountAction,
+                            {
+                                "position__id__exact": obj.pk,
+                                "has_remaining_quantity__exact": "1",
+                                "o": "1",
+                            },
+                        ),
+                        "Available",
+                    )
+                ],
+                [
+                    self.generate_link(
+                        get_admin_list_url(
+                            HoldingAccountSale,
+                            {"position__id__exact": obj.pk},
+                        ),
+                        "Sales",
+                    )
+                ],
+                [
+                    self.generate_link(
+                        get_admin_list_url(
+                            HoldingAccountGeneration,
+                            {"position__id__exact": obj.pk},
+                        ),
+                        "Generations",
+                    )
+                ],
+            ],
         )
 
-    def total_generation_profit(self, obj: HoldingAccountPosition) -> str:
-        return "".join(
-            [
-                "$",
-                str(obj.total_generation_profit.quantize(Decimal("0.01"))),
-            ]
-        )
-
-    def total_profit(self, obj: HoldingAccountPosition) -> str:
-        return "".join(
-            [
-                "$",
-                str(obj.total_profit.quantize(Decimal("0.01"))),
-            ]
-        )
-
-    def average_sale_interest(self, obj: HoldingAccountPosition) -> str:
-        return "".join(
-            [
-                str((obj.average_sale_interest * 100).quantize(Decimal("0.01"))),
-                "%",
-            ]
-        )
+    def total_available_profit(self, obj: HoldingAccountPosition) -> Decimal | None:
+        if not obj.ticker or not obj.ticker.current_price:
+            return None
+        return obj.available_purchases.potential_profit(obj.ticker.current_price)
 
     def generation_frequency(self, obj: HoldingAccountPosition) -> str:
         return "".join(
@@ -358,26 +276,100 @@ class HoldingAccountPositionAdmin(DHModelAdmin[HoldingAccountPosition]):
             ]
         )
 
-    def average_generation_interest(self, obj: HoldingAccountPosition) -> str:
-        return "".join(
-            [
-                str((obj.average_generation_interest * 100).quantize(Decimal("0.01"))),
-                "%",
-            ]
-        )
+    def total_available_interest(self, obj: HoldingAccountPosition) -> Decimal | None:
+        if not obj.ticker or not obj.ticker.current_price:
+            return None
+        return obj.available_purchases.total_interest(obj.ticker.current_price)
 
-    def total_interest(self, obj: HoldingAccountPosition) -> str:
-        return "".join(
-            [
-                str((obj.total_interest * 100).quantize(Decimal("0.01"))),
-                "%",
-            ]
-        )
+
+@admin.register(HoldingAccountGeneration)
+class HoldingAccountGenerationAdmin(DHModelAdmin[HoldingAccountGeneration]):
+    list_filter = ("position__holding_account",)
+    list_display = (
+        "date",
+        "event",
+        "symbol",
+        "amount|dollars",
+        "cost_basis|dollars",
+        "percentage|percent",
+    )
+    readonly_fields = (
+        "amount|dollars",
+        "cost_basis|dollars",
+        "percentage|percent",
+    )
+
+    @override
+    def get_queryset(self, request: HttpRequest) -> QuerySet[HoldingAccountGeneration]:
+        return super().get_queryset(request).order_by("-date")
+
+    def symbol(self, obj: HoldingAccountGeneration) -> str:
+        return obj.position.ticker_symbol
+
+    def amount(self, obj: HoldingAccountGeneration) -> Decimal:
+        return obj.amount.quantize(Decimal("0.001"))
+
+    def percentage(self, obj: HoldingAccountGeneration) -> Decimal:
+        return obj.position_generation.position_percentage()
+
+    @override
+    def has_add_permission(
+        self, request: HttpRequest, obj: HoldingAccountPosition | None = None
+    ) -> bool:
+        return False
+
+    @override
+    def has_change_permission(
+        self, request: HttpRequest, obj: HoldingAccountGeneration | None = None
+    ) -> bool:
+        return False
+
+    @override
+    def has_delete_permission(
+        self, request: HttpRequest, obj: HoldingAccountGeneration | None = None
+    ) -> bool:
+        return False
 
 
 @admin.register(HoldingAccountAction)
 class HoldingAccountActionAdmin(DHModelAdmin[HoldingAccountAction]):
-    list_filter = ("position__holding_account",)
+    list_filter = ("position__holding_account", "has_remaining_quantity")
+    list_display = (
+        "purchased_on",
+        "position__holding_account",
+        "action",
+        "price|dollars",
+        "quantity|number",
+        "remaining_quantity|number",
+        "potential_profit|dollars",
+        "potential_interest|percent",
+    )
+
+    @override
+    def get_queryset(self, request: HttpRequest) -> QuerySet[HoldingAccountAction]:
+        return (
+            super()
+            .get_queryset(request)
+            .prefetch_related("position__ticker")
+            .order_by("-purchased_on")
+        )
+
+    def potential_profit(self, obj: HoldingAccountAction) -> Decimal | None:
+        if obj.available_purchase is None:
+            return None
+        if obj.position.ticker and obj.position.ticker.current_price:
+            return obj.available_purchase.potential_profit(
+                obj.position.ticker.current_price
+            ).quantize(Decimal("0.01"))
+
+    def potential_interest(self, obj: HoldingAccountAction) -> Decimal | None:
+        if obj.available_purchase is None:
+            return None
+        if obj.position.ticker and obj.position.ticker.current_price:
+            return obj.available_purchase.potential_interest(
+                datetime.date.today(),
+                obj.position.ticker.current_price,
+            ).quantize(Decimal("0.01"))
 
 
 @admin.register(HoldingAccountSale)
@@ -399,8 +391,3 @@ class HoldingAccountSaleAdmin(DHModelAdmin[HoldingAccountSale]):
 
     def ticker_symbol(self, obj: HoldingAccountSale) -> str:
         return obj.position.ticker_symbol
-
-
-@admin.register(HoldingAccountGeneration)
-class HoldingAccountGenerationAdmin(DHModelAdmin[HoldingAccountGeneration]):
-    list_filter = ("position__holding_account",)

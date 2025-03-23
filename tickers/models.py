@@ -8,9 +8,7 @@ TICKER_LENGTH = 10
 
 
 class Ticker(models.Model):
-    symbol = models.CharField(
-        max_length=TICKER_LENGTH, primary_key=True, editable=False, unique=True
-    )
+    symbol = models.CharField(max_length=TICKER_LENGTH, primary_key=True, unique=True)
     current_price = models.DecimalField(
         decimal_places=8, max_digits=32, blank=True, null=True
     )

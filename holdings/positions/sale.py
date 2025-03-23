@@ -57,13 +57,30 @@ class PositionSale(Pythonable["PositionSaleDict"], Copyable):
         """
         return (self.sale_price - self.purchase_price) * self.quantity
 
+    @property
+    def days_held(self) -> int:
+        """
+        The number of days this position was held
+        """
+        return (self.sale_date - self.purchase_date).days
+
+    @property
+    def investment(self) -> Decimal:
+        """
+        The amount of money invested
+        """
+        return self.quantity * self.purchase_price
+
     def interest(self) -> Decimal:
         """
         Calculate the converted interest of the sale.
         """
-        days = Decimal((self.sale_date - self.purchase_date).days)
-        year_percent = Decimal("1") if not days else days / Decimal("365.25")
-        return self.profit() / self.quantity / self.purchase_price / year_percent
+        year_percent = (
+            Decimal("1")
+            if not self.days_held
+            else Decimal(self.days_held) / Decimal("365.25")
+        )
+        return self.profit() / self.investment / year_percent
 
     @override
     def to_python(self) -> Pythonic:
