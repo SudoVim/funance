@@ -10,6 +10,7 @@
       "django_helpers/**",
       "subs/**",
       "**/migrations",
+      "**/factories.py",
       "manage.py"
   ],
   "reportUnannotatedClassAttribute": false,

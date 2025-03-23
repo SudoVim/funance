@@ -95,7 +95,18 @@ class AddBuyTests(PositionSetTestCase):
                     "cost_basis_per_share": Decimal("1"),
                     "generations": [],
                     "quantity": Decimal("150.84"),
-                    "sales": [],
+                    "sales": [
+                        {
+                            "interest": Decimal("0E+30"),
+                            "profit": Decimal("0.00"),
+                            "purchase_date": datetime.date(2025, 3, 17),
+                            "purchase_price": Decimal("1"),
+                            "quantity": Decimal("849.16"),
+                            "sale_date": datetime.date(2025, 3, 18),
+                            "sale_price": Decimal("1"),
+                            "symbol": "CASH",
+                        },
+                    ],
                     "symbol": "CASH",
                 },
             },
@@ -163,7 +174,18 @@ class AddSaleTests(PositionSetTestCase):
                     "cost_basis_per_share": Decimal("212.29"),
                     "generations": [],
                     "quantity": Decimal("2"),
-                    "sales": [],
+                    "sales": [
+                        {
+                            "interest": Decimal("13.76419049413538084695463752"),
+                            "profit": Decimal("16.00"),
+                            "purchase_date": datetime.date(2025, 3, 18),
+                            "purchase_price": Decimal("212.29"),
+                            "quantity": Decimal("2"),
+                            "sale_date": datetime.date(2025, 3, 19),
+                            "sale_price": Decimal("220.29"),
+                            "symbol": "AAPL",
+                        },
+                    ],
                     "symbol": "AAPL",
                 },
                 "CASH": {
@@ -215,7 +237,18 @@ class AddSaleTests(PositionSetTestCase):
                     "cost_basis_per_share": Decimal("1"),
                     "generations": [],
                     "quantity": Decimal("591.42"),
-                    "sales": [],
+                    "sales": [
+                        {
+                            "interest": Decimal("0E+30"),
+                            "profit": Decimal("0.00"),
+                            "purchase_date": datetime.date(2025, 3, 17),
+                            "purchase_price": Decimal("1"),
+                            "quantity": Decimal("849.16"),
+                            "sale_date": datetime.date(2025, 3, 18),
+                            "sale_price": Decimal("1"),
+                            "symbol": "CASH",
+                        },
+                    ],
                     "symbol": "CASH",
                 },
             },
@@ -336,9 +369,50 @@ class AddGenerationTests(PositionSetTestCase):
                     "cost_basis_per_share": Decimal("1"),
                     "generations": [],
                     "quantity": Decimal("170.84"),
-                    "sales": [],
+                    "sales": [
+                        {
+                            "interest": Decimal("0E+30"),
+                            "profit": Decimal("0.00"),
+                            "purchase_date": datetime.date(2025, 3, 17),
+                            "purchase_price": Decimal("1"),
+                            "quantity": Decimal("849.16"),
+                            "sale_date": datetime.date(2025, 3, 18),
+                            "sale_price": Decimal("1"),
+                            "symbol": "CASH",
+                        },
+                    ],
                     "symbol": "CASH",
                 },
             },
             self.position_set.to_python(),
+        )
+
+
+class CopyTests(PositionSetTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+
+        self.position_set.add_buy(
+            "CASH",
+            datetime.date(2025, 3, 17),
+            Decimal("1000"),
+            Decimal("1"),
+            offset_cash=False,
+        )
+        self.position_set.add_buy(
+            "AAPL",
+            datetime.date(2025, 3, 18),
+            Decimal("4"),
+            Decimal("212.29"),
+        )
+        self.position_set.add_sale(
+            "AAPL",
+            datetime.date(2025, 3, 19),
+            Decimal("2"),
+            Decimal("220.29"),
+        )
+
+    def test(self) -> None:
+        self.assertEqual(
+            self.position_set.to_python(), self.position_set.copy().to_python()
         )
