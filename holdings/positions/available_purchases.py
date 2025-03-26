@@ -71,6 +71,31 @@ class AvailablePurchases(
         """
         return AvailablePurchases(a.add_split(new_symbol, proportion) for a in self)
 
+    def potential_profit(self, price: Decimal) -> Decimal:
+        """
+        Calculate the potential profit from this sale.
+        """
+        return Decimal(sum(a.potential_profit(price) for a in self))
+
+    def total_interest(
+        self, price: Decimal, ref: datetime.date | None = None
+    ) -> Decimal:
+        """
+        Calculate the converted interest of the sale.
+        """
+        if len(self) == 0:
+            return Decimal("0")
+
+        investment_days = Decimal("0")
+        ref = ref or datetime.date.today()
+        for action in self:
+            investment_days += action.investment * (ref - action.date).days
+
+        total_days = (ref - self[0].date).days
+        normalized_investment = investment_days / total_days
+        year_percent = total_days / Decimal("365.25")
+        return self.potential_profit(price) / normalized_investment / year_percent
+
     @override
     def to_python(self) -> Pythonic:
         return [a.to_python() for a in self]

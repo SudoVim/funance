@@ -9,6 +9,7 @@ from typing_extensions import override
 
 from accounts.models import Account
 from holdings.positions.action import PositionAction
+from holdings.positions.available_purchases import AvailablePurchases
 from holdings.positions.generation import PositionGeneration
 from holdings.positions.generation_list import GenerationList
 from holdings.positions.sale import PositionSale
@@ -136,12 +137,27 @@ class HoldingAccountPosition(models.Model):
         return SaleList(s.position_sale for s in self.sales.all())
 
     @cached_property
+    def available_purchases(self) -> AvailablePurchases:
+        """
+        :class:`SaleList` representing all sales
+        """
+
+        def iterate_available_purchases():
+            for action in self.actions.order_by("purchased_on").iterator():
+                available_purchase = action.available_purchase
+                if available_purchase is None:
+                    continue
+                yield available_purchase
+
+        return AvailablePurchases(iterate_available_purchases())
+
+    @cached_property
     def total_sale_profit(self) -> Decimal:
         return self.sale_list.total_profit()
 
     @cached_property
-    def average_sale_interest(self) -> Decimal:
-        return self.sale_list.average_interest()
+    def total_sale_interest(self) -> Decimal:
+        return self.sale_list.total_interest()
 
     @cached_property
     def generation_list(self) -> GenerationList:
@@ -182,7 +198,7 @@ class HoldingAccountPosition(models.Model):
 
     @cached_property
     def total_interest(self) -> Decimal:
-        return self.average_sale_interest + self.average_generation_interest
+        return self.total_sale_interest + self.average_generation_interest
 
 
 class HoldingAccountAction(models.Model):
@@ -236,6 +252,24 @@ class HoldingAccountAction(models.Model):
             self.purchased_on,
             self.action,  # pyright: ignore[reportArgumentType]
             self.quantity,
+            self.price,
+        )
+
+    @property
+    def available_purchase(self) -> PositionAction | None:
+        """
+        Action object representing this action as an available purchase if it
+        can be.
+        """
+        if self.action != self.Action.BUY:
+            return None
+        if self.remaining_quantity is None or self.remaining_quantity <= 0:
+            return None
+        return PositionAction(
+            self.position.ticker_symbol,
+            self.purchased_on,
+            self.action,  # pyright: ignore[reportArgumentType]
+            self.remaining_quantity,
             self.price,
         )
 

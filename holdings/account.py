@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import cast
 
 from holdings.fidelity import ActivityParser, StatementParser
 from holdings.models import (
@@ -113,24 +114,29 @@ def shore_up_buy_actions(self: HoldingAccountPosition) -> None:
 
     def get_spent_buys():
         remaining_sales = Decimal(sum(s.quantity for s in self.sales.iterator()))
-        for buy in (
-            self.actions.filter(action=HoldingAccountAction.Action.BUY)
-            .order_by("purchased_on")
-            .iterator()
-        ):
-            next_remaining_sales = remaining_sales - buy.quantity
-
-            if next_remaining_sales > 0:
-                buy.remaining_quantity = Decimal("0")
-                buy.has_remaining_quantity = False
-                yield buy
-                remaining_sales = next_remaining_sales
+        for action in self.actions.order_by("purchased_on").iterator():
+            if action.action != HoldingAccountAction.Action.BUY:
+                action.remaining_quantity = None
+                action.has_remaining_quantity = False
+                yield action
                 continue
 
-            buy.remaining_quantity = -next_remaining_sales
-            buy.has_remaining_quantity = buy.remaining_quantity > 0  # pyright: ignore[reportOptionalOperand]
-            yield buy
-            break
+            if remaining_sales <= 0:
+                action.remaining_quantity = action.quantity
+                action.has_remaining_quantity = True
+                yield action
+                continue
+
+            remaining_sales -= action.quantity
+            if remaining_sales > 0:
+                action.remaining_quantity = Decimal("0")
+                action.has_remaining_quantity = False
+                yield action
+                continue
+
+            action.remaining_quantity = -remaining_sales
+            action.has_remaining_quantity = cast(Decimal, action.remaining_quantity) > 0
+            yield action
 
     _ = self.actions.bulk_update(
         get_spent_buys(),
