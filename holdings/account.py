@@ -53,6 +53,10 @@ def sync_positions(self: HoldingAccount, positions: PositionSet) -> None:
         shore_up_buy_actions(ha_position)
         sync_position_generations(ha_position, position)
 
+        ha_position.quantity = position.quantity
+        ha_position.cost_basis = position.cost_basis
+        ha_position.save()
+
 
 def sync_position_actions(self: HoldingAccountPosition, position: Position) -> None:
     """
