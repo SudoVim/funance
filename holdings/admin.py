@@ -37,66 +37,11 @@ class HoldingAccountDocumentInline(admin.TabularInline[HoldingAccountDocument]):
         return super().get_queryset(request).order_by("order", "created_at")
 
 
-class HoldingAccountPositionInline(admin.TabularInline[HoldingAccountPosition]):
-    model = HoldingAccountPosition
-    show_change_link = True
-    extra = 0
-    readonly_fields = (
-        "ticker_symbol",
-        "total_sale_profit",
-        "total_generation_profit",
-        "generation_frequency",
-        "total_profit",
-    )
-
-    @override
-    def get_queryset(self, request: HttpRequest) -> QuerySet[HoldingAccountPosition]:
-        return (
-            super()
-            .get_queryset(request)
-            .prefetch_related("sales", "generations")
-            .order_by("ticker_symbol")
-        )
-
-    def total_sale_profit(self, obj: HoldingAccountPosition) -> str:
-        return "".join(
-            [
-                "$",
-                str(obj.total_sale_profit.quantize(Decimal("0.01"))),
-            ]
-        )
-
-    def total_generation_profit(self, obj: HoldingAccountPosition) -> str:
-        return "".join(
-            [
-                "$",
-                str(obj.total_generation_profit.quantize(Decimal("0.01"))),
-            ]
-        )
-
-    def total_profit(self, obj: HoldingAccountPosition) -> str:
-        return "".join(
-            [
-                "$",
-                str(obj.total_profit.quantize(Decimal("0.01"))),
-            ]
-        )
-
-    def generation_frequency(self, obj: HoldingAccountPosition) -> str:
-        return "".join(
-            [
-                str(obj.generation_frequency.quantize(Decimal("0.01"))),
-                "/yr",
-            ]
-        )
-
-
 @admin.register(HoldingAccount)
 class HoldingAccountAdmin(DHModelAdmin[HoldingAccount]):
     inlines = (
         HoldingAccountAliasInline,
         HoldingAccountDocumentInline,
-        HoldingAccountPositionInline,
     )
     readonly_fields = ("links", "action_buttons")
     change_actions = (
@@ -113,9 +58,18 @@ class HoldingAccountAdmin(DHModelAdmin[HoldingAccount]):
                     self.generate_link(
                         get_admin_list_url(
                             HoldingAccountDocument,
-                            {"holding_account": obj.pk},
+                            {"holding_account__id__exact": obj.pk},
                         ),
                         "Documents",
+                    )
+                ],
+                [
+                    self.generate_link(
+                        get_admin_list_url(
+                            HoldingAccountPosition,
+                            {"holding_account__id__exact": obj.pk},
+                        ),
+                        "Positions",
                     )
                 ],
                 [
@@ -187,10 +141,31 @@ class HoldingAccountDocumentAdmin(admin.ModelAdmin):  # pyright: ignore[reportMi
     list_display = ("__str__", "holding_account", "document_type", "created_at")
 
 
+class HasPositionFilter(admin.SimpleListFilter):
+    title = "Has position"
+    parameter_name = "has_position"
+
+    @override
+    def lookups(self, request: HttpRequest, model_admin: "HoldingAccountPositionAdmin"):
+        return [
+            ("has_position", "Has position"),
+            ("all_positions", "All positions"),
+        ]
+
+    @override
+    def queryset(
+        self, request: HttpRequest, queryset: QuerySet[HoldingAccountPosition]
+    ) -> QuerySet[HoldingAccountPosition]:
+        if self.value() == "all_positions":
+            return queryset
+        return queryset.filter(quantity__gt=0)
+
+
 @admin.register(HoldingAccountPosition)
 class HoldingAccountPositionAdmin(DHModelAdmin[HoldingAccountPosition]):
-    list_filter = ("holding_account",)
-    search_fields = ("ticker",)
+    list_filter = (HasPositionFilter, "holding_account")
+    search_fields = ("ticker_symbol", "ticker__symbol")
+    autocomplete_fields = ("ticker",)
     readonly_fields = (
         "holding_account",
         "links",
@@ -205,13 +180,23 @@ class HoldingAccountPositionAdmin(DHModelAdmin[HoldingAccountPosition]):
         "total_available_profit|dollars",
         "total_available_interest|percent",
     )
+    list_display = (
+        "ticker_symbol",
+        "holding_account",
+        "quantity|number",
+        "cost_basis|dollars",
+        "total_sale_profit|dollars",
+        "total_generation_profit|dollars",
+        "total_profit|dollars",
+        "total_available_profit|dollars",
+    )
 
     @override
     def get_queryset(self, request: HttpRequest) -> QuerySet[HoldingAccountPosition]:
         return (
             super()
             .get_queryset(request)
-            .prefetch_related("sales", "generations")
+            .prefetch_related("sales", "generations", "actions")
             .order_by("ticker_symbol")
         )
 

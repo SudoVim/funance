@@ -84,6 +84,8 @@ class SyncPositionsTests(AccountTestCase):
         self.positions = MagicMock(spec=PositionSet)
         self.position = MagicMock(spec=Position)
         self.position.symbol = "AAPL"
+        self.position.quantity = Decimal("4")
+        self.position.cost_basis = Decimal("123.45")
         self.positions.values.return_value = [self.position]
 
         self.sync_position_actions = self.patch_module(

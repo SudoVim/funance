@@ -8,7 +8,7 @@ services:
     depends_on:
       - db
       - redis
-        #- elastic
+      - elastic
     volumes:
       - .:/code
     ports:
@@ -21,9 +21,10 @@ services:
       - postgres-data:/var/lib/postgresql/data
   redis:
     image: redis:6
-        #  elastic:
-        #    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
-        #    environment:
-        #      - discovery.type=single-node
-        #    volumes:
-        #      - elastic-data:/usr/share/elasticsearch/data
+  elastic:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms1024m -Xmx1024m"
+    volumes:
+      - elastic-data:/usr/share/elasticsearch/data

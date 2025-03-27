@@ -9,9 +9,11 @@ from typing_extensions import override
 
 from accounts.models import Account
 from holdings.positions.action import PositionAction
+from holdings.positions.action_list import ActionList
 from holdings.positions.available_purchases import AvailablePurchases
 from holdings.positions.generation import PositionGeneration
 from holdings.positions.generation_list import GenerationList
+from holdings.positions.position import Position
 from holdings.positions.sale import PositionSale
 from holdings.positions.sale_list import SaleList
 
@@ -122,12 +124,45 @@ class HoldingAccountPosition(models.Model):
         blank=True,
     )
 
+    quantity = models.DecimalField(
+        max_digits=32, decimal_places=8, blank=True, null=True
+    )
+    cost_basis = models.DecimalField(
+        max_digits=32, decimal_places=8, blank=True, null=True
+    )
+
     actions: models.QuerySet["HoldingAccountAction"]  # pyright: ignore[reportUninitializedInstanceVariable]
     sales: models.QuerySet["HoldingAccountSale"]  # pyright: ignore[reportUninitializedInstanceVariable]
     generations: models.QuerySet["HoldingAccountGeneration"]  # pyright: ignore[reportUninitializedInstanceVariable]
 
     class Meta:
+        ordering = ["ticker_symbol"]
         unique_together = "holding_account", "ticker_symbol"
+        indexes = [
+            models.Index(fields=["quantity"]),
+        ]
+
+    @cached_property
+    def position(self) -> Position:
+        """
+        :class:`Position` representing this position.
+        """
+        return Position(
+            self.ticker_symbol,
+            self.action_list,
+            self.generation_list,
+            self.quantity,
+            self.cost_basis,
+            self.available_purchases,
+            self.sale_list,
+        )
+
+    @cached_property
+    def action_list(self) -> ActionList:
+        """
+        :class:`ActionList` representing all actions
+        """
+        return ActionList(a.position_action for a in self.actions.all())
 
     @cached_property
     def sale_list(self) -> SaleList:
@@ -143,7 +178,7 @@ class HoldingAccountPosition(models.Model):
         """
 
         def iterate_available_purchases():
-            for action in self.actions.order_by("purchased_on").iterator():
+            for action in self.actions.all():
                 available_purchase = action.available_purchase
                 if available_purchase is None:
                     continue
@@ -242,7 +277,7 @@ class HoldingAccountAction(models.Model):
     #: The price of the security at purchase time.
     price = models.DecimalField(max_digits=32, decimal_places=8)
 
-    @property
+    @cached_property
     def position_action(self) -> PositionAction:
         """
         Action object representing this database entry.
@@ -255,7 +290,7 @@ class HoldingAccountAction(models.Model):
             self.price,
         )
 
-    @property
+    @cached_property
     def available_purchase(self) -> PositionAction | None:
         """
         Action object representing this action as an available purchase if it
@@ -274,6 +309,7 @@ class HoldingAccountAction(models.Model):
         )
 
     class Meta:
+        ordering = ["purchased_on"]
         indexes = [
             models.Index(fields=["purchased_on"]),
             models.Index(fields=["action"]),
@@ -330,6 +366,7 @@ class HoldingAccountSale(models.Model):
         return self.position_sale.profit()
 
     class Meta:
+        ordering = ["sale_date"]
         indexes = [
             models.Index(fields=["purchase_date"]),
             models.Index(fields=["sale_date"]),
@@ -386,6 +423,7 @@ class HoldingAccountGeneration(models.Model):
         )
 
     class Meta:
+        ordering = ["date"]
         indexes = [
             models.Index(fields=["date"]),
         ]
