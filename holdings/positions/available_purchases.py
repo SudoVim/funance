@@ -71,6 +71,12 @@ class AvailablePurchases(
         """
         return AvailablePurchases(a.add_split(new_symbol, proportion) for a in self)
 
+    def potential_value(self, price: Decimal) -> Decimal:
+        """
+        Calculate the potential value of all positions based on current price.
+        """
+        return Decimal(sum(a.potential_value(price) for a in self))
+
     def potential_profit(self, price: Decimal) -> Decimal:
         """
         Calculate the potential profit from this sale.

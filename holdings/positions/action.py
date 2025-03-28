@@ -72,11 +72,23 @@ class PositionAction(
             price=self.price / proportion,
         )
 
+    def cost_basis(self) -> Decimal:
+        """
+        The cost basis of this position
+        """
+        return self.quantity * self.price
+
+    def potential_value(self, price: Decimal) -> Decimal:
+        """
+        Calculate the potential value of this position based on current price.
+        """
+        return self.quantity * price
+
     def potential_profit(self, price: Decimal) -> Decimal:
         """
         Calculate the potential profit from this sale.
         """
-        return (price - self.price) * self.quantity
+        return self.potential_value(price) - self.cost_basis()
 
     def potential_interest(self, today: datetime.date, price: Decimal) -> Decimal:
         """
