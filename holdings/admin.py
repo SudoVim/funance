@@ -20,6 +20,8 @@ from holdings.models import (
     HoldingAccountPosition,
     HoldingAccountSale,
 )
+from tickers.models import Ticker
+from tickers.tickers import query_daily, query_info
 
 
 class HoldingAccountAliasInline(admin.TabularInline[HoldingAccountAlias]):
@@ -47,6 +49,7 @@ class HoldingAccountAdmin(DHModelAdmin[HoldingAccount]):
     change_actions = (
         "reset_positions",
         "parse_positions",
+        "update_tickers",
     )
 
     def links(self, obj: HoldingAccount) -> str:
@@ -135,6 +138,27 @@ class HoldingAccountAdmin(DHModelAdmin[HoldingAccount]):
         sync_positions(obj, positions)
         return self.redirect_referrer(request)
 
+    def update_tickers(self, request: HttpRequest, pk: Any) -> HttpResponse:
+        """
+        Parse positions represented in the attached documents.
+        """
+        obj = self.get_object(request, pk)
+        if not obj:
+            self.message_user(
+                request,
+                "Object not found.",
+                level="ERROR",
+            )
+            return self.redirect_referrer(request)
+
+        tickers = Ticker.objects.filter(
+            holding_account_positions__holding_account=obj,
+        )
+        for ticker in tickers.iterator():
+            query_info.delay(ticker)
+            query_daily.delay(ticker)
+        return self.redirect_referrer(request)
+
 
 @admin.register(HoldingAccountDocument)
 class HoldingAccountDocumentAdmin(admin.ModelAdmin):  # pyright: ignore[reportMissingTypeArgument]
@@ -167,6 +191,7 @@ class HoldingAccountPositionAdmin(DHModelAdmin[HoldingAccountPosition]):
     search_fields = ("ticker_symbol", "ticker__symbol")
     autocomplete_fields = ("ticker",)
     readonly_fields = (
+        "current_price|dollars",
         "value|dollars",
         "holding_account",
         "links",
@@ -201,10 +226,15 @@ class HoldingAccountPositionAdmin(DHModelAdmin[HoldingAccountPosition]):
             .order_by("ticker_symbol")
         )
 
-    def value(self, obj: HoldingAccountPosition) -> Decimal | None:
-        if not obj.ticker or not obj.ticker.current_price:
+    def current_price(self, obj: HoldingAccountPosition) -> Decimal | None:
+        if not obj.ticker:
             return None
-        return obj.available_purchases.potential_value(obj.ticker.current_price)
+        return obj.ticker.price
+
+    def value(self, obj: HoldingAccountPosition) -> Decimal | None:
+        if not obj.ticker or not obj.ticker.price:
+            return None
+        return obj.available_purchases.potential_value(obj.ticker.price)
 
     def links(self, obj: HoldingAccountPosition) -> str:
         return format_html_join(
@@ -255,9 +285,9 @@ class HoldingAccountPositionAdmin(DHModelAdmin[HoldingAccountPosition]):
         )
 
     def total_available_profit(self, obj: HoldingAccountPosition) -> Decimal | None:
-        if not obj.ticker or not obj.ticker.current_price:
+        if not obj.ticker or not obj.ticker.price:
             return None
-        return obj.available_purchases.potential_profit(obj.ticker.current_price)
+        return obj.available_purchases.potential_profit(obj.ticker.price)
 
     def generation_frequency(self, obj: HoldingAccountPosition) -> str:
         return "".join(
@@ -268,9 +298,9 @@ class HoldingAccountPositionAdmin(DHModelAdmin[HoldingAccountPosition]):
         )
 
     def total_available_interest(self, obj: HoldingAccountPosition) -> Decimal | None:
-        if not obj.ticker or not obj.ticker.current_price:
+        if not obj.ticker or not obj.ticker.price:
             return None
-        return obj.available_purchases.total_interest(obj.ticker.current_price)
+        return obj.available_purchases.total_interest(obj.ticker.price)
 
 
 @admin.register(HoldingAccountGeneration)
@@ -349,18 +379,16 @@ class HoldingAccountActionAdmin(DHModelAdmin[HoldingAccountAction]):
     def potential_profit(self, obj: HoldingAccountAction) -> Decimal | None:
         if obj.available_purchase is None:
             return None
-        if obj.position.ticker and obj.position.ticker.current_price:
-            return obj.available_purchase.potential_profit(
-                obj.position.ticker.current_price
-            )
+        if obj.position.ticker and obj.position.ticker.price:
+            return obj.available_purchase.potential_profit(obj.position.ticker.price)
 
     def potential_interest(self, obj: HoldingAccountAction) -> Decimal | None:
         if obj.available_purchase is None:
             return None
-        if obj.position.ticker and obj.position.ticker.current_price:
+        if obj.position.ticker and obj.position.ticker.price:
             return obj.available_purchase.potential_interest(
                 datetime.date.today(),
-                obj.position.ticker.current_price,
+                obj.position.ticker.price,
             )
 
 
