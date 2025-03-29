@@ -69,3 +69,21 @@ migrate:
 .PHONY: migrations
 migrations:
 	$(DOCKER_COMPOSE_RUN) web python manage.py makemigrations
+
+.PHONY: restart-scheduler
+restart-scheduler:
+	$(DOCKER_COMPOSE) restart scheduler
+
+.PHONY: restart-worker
+restart-worker:
+	$(DOCKER_COMPOSE) restart worker
+
+.PHONY: restart-web
+restart-web:
+	$(DOCKER_COMPOSE) restart web
+
+.PHONY: restart-all
+restart-all:
+	$(MAKE) restart-worker
+	$(MAKE) restart-scheduler
+	$(MAKE) restart-web

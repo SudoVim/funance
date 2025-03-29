@@ -8,20 +8,25 @@ from django.utils.html import format_html
 
 from django_helpers.admin import DHModelAdmin
 from tickers.models import Ticker
+from tickers.tickers import query_daily, query_info
 
 
 @admin.register(Ticker)
 class TickerAdmin(DHModelAdmin[Ticker]):
     search_fields = ["symbol"]
-    change_actions = (
-        "query_info",
-        "query_daily",
-    )
+    change_actions = ("query_latest",)
     readonly_fields = (
+        "price|dollars",
         "action_buttons",
         "latest_daily",
         "latest_info",
     )
+
+    def price(self, obj: Ticker) -> Decimal | None:
+        latest_daily = obj.latest_daily
+        if latest_daily is None:
+            return None
+        return Decimal(latest_daily.close)
 
     def latest_info(self, obj: Ticker) -> str:
         latest_info = obj.latest_info
@@ -47,7 +52,7 @@ class TickerAdmin(DHModelAdmin[Ticker]):
             ),
         )
 
-    def query_info(self, request: HttpRequest, pk: Any) -> HttpResponse:
+    def query_latest(self, request: HttpRequest, pk: Any) -> HttpResponse:
         obj = self.get_object(request, pk)
         if not obj:
             self.message_user(
@@ -57,22 +62,6 @@ class TickerAdmin(DHModelAdmin[Ticker]):
             )
             return self.redirect_referrer(request)
 
-        _ = obj.info.query()
-        return self.redirect_referrer(request)
-
-    def query_daily(self, request: HttpRequest, pk: Any) -> HttpResponse:
-        obj = self.get_object(request, pk)
-        if not obj:
-            self.message_user(
-                request,
-                "Object not found",
-                level="ERROR",
-            )
-            return self.redirect_referrer(request)
-
-        obj.daily.query()
-        latest = obj.daily.latest()
-        if latest:
-            obj.current_price = Decimal(latest.close)
-            obj.save()
+        query_info.delay(obj)
+        query_daily.delay(obj)
         return self.redirect_referrer(request)

@@ -1,0 +1,3 @@
+from typing import Any, Callable
+
+def job(queue: str) -> Callable[..., Any]: ...

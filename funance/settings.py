@@ -11,8 +11,9 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 """
 
 import os
+from collections.abc import Collection
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from dotenv import load_dotenv
 
@@ -49,10 +50,12 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "corsheaders",
+    "django_rq",
     # 3rd-party apps
     "rest_framework",
     "knox",
     # Local apps
+    "funance",
     "accounts",
     "tickers",
     "funds",
@@ -171,3 +174,21 @@ FUNANCE_DATA_CONFIG_VALUES["elasticsearch.url"] = ELASTICSEARCH_URL
 FUNANCE_DATA_CONFIG_VALUES["elasticsearch.username"] = ELASTICSEARCH_USERNAME
 FUNANCE_DATA_CONFIG_VALUES["elasticsearch.password"] = ELASTICSEARCH_PASSWORD
 FUNANCE_DATA_CONFIG_VALUES["elasticsearch.index_prefix"] = ELASTICSEARCH_INDEX_PREFIX
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": cast(Collection[str], ("redis://redis:6379",)),
+        # don't expire cache keys by default
+        "TIMEOUT": None,
+    }
+}
+
+RQ_QUEUES = {
+    "default": {
+        "USE_REDIS_CACHE": "default",
+    },
+    "low": {
+        "USE_REDIS_CACHE": "default",
+    },
+}
