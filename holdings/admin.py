@@ -167,6 +167,7 @@ class HoldingAccountPositionAdmin(DHModelAdmin[HoldingAccountPosition]):
     search_fields = ("ticker_symbol", "ticker__symbol")
     autocomplete_fields = ("ticker",)
     readonly_fields = (
+        "value|dollars",
         "holding_account",
         "links",
         "ticker_symbol",
@@ -199,6 +200,11 @@ class HoldingAccountPositionAdmin(DHModelAdmin[HoldingAccountPosition]):
             .prefetch_related("sales", "generations", "actions")
             .order_by("ticker_symbol")
         )
+
+    def value(self, obj: HoldingAccountPosition) -> Decimal | None:
+        if not obj.ticker or not obj.ticker.current_price:
+            return None
+        return obj.available_purchases.potential_value(obj.ticker.current_price)
 
     def links(self, obj: HoldingAccountPosition) -> str:
         return format_html_join(
@@ -292,7 +298,7 @@ class HoldingAccountGenerationAdmin(DHModelAdmin[HoldingAccountGeneration]):
         return obj.position.ticker_symbol
 
     def amount(self, obj: HoldingAccountGeneration) -> Decimal:
-        return obj.amount.quantize(Decimal("0.001"))
+        return obj.amount
 
     def percentage(self, obj: HoldingAccountGeneration) -> Decimal:
         return obj.position_generation.position_percentage()
@@ -322,6 +328,7 @@ class HoldingAccountActionAdmin(DHModelAdmin[HoldingAccountAction]):
     list_display = (
         "purchased_on",
         "position__holding_account",
+        "position__ticker_symbol",
         "action",
         "price|dollars",
         "quantity|number",
@@ -345,7 +352,7 @@ class HoldingAccountActionAdmin(DHModelAdmin[HoldingAccountAction]):
         if obj.position.ticker and obj.position.ticker.current_price:
             return obj.available_purchase.potential_profit(
                 obj.position.ticker.current_price
-            ).quantize(Decimal("0.01"))
+            )
 
     def potential_interest(self, obj: HoldingAccountAction) -> Decimal | None:
         if obj.available_purchase is None:
@@ -354,7 +361,7 @@ class HoldingAccountActionAdmin(DHModelAdmin[HoldingAccountAction]):
             return obj.available_purchase.potential_interest(
                 datetime.date.today(),
                 obj.position.ticker.current_price,
-            ).quantize(Decimal("0.01"))
+            )
 
 
 @admin.register(HoldingAccountSale)
