@@ -1,7 +1,8 @@
 import uuid
 
 from django.db import models
-from django.utils.translation import gettext_lazy as _
+from django.db.models import QuerySet
+from typing_extensions import override
 
 from accounts.models import Account
 from tickers.models import Ticker
@@ -9,36 +10,93 @@ from tickers.models import Ticker
 
 class Fund(models.Model):
     """
-    The Fund model represents a single fund, which consists of an array of
-    purchases of different tickers.
+    The Fund model represents a single fund
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     owner = models.ForeignKey[Account](
         "accounts.Account", on_delete=models.CASCADE, related_name="funds"
     )
 
+    active_version = models.OneToOneField(
+        "FundVersion",
+        on_delete=models.SET_NULL,
+        related_name="+",
+        blank=True,
+        null=True,
+    )
+
+    versions: QuerySet["FundVersion"]  # pyright: ignore[reportUninitializedInstanceVariable]
+
     #: Name of the fund
     name = models.CharField(max_length=64)
 
-    #: Total number of shares available to allocate
-    shares = models.IntegerField(default=1000)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    @override
+    def __str__(self) -> str:
+        return self.name
 
 
-class FundAllocation(models.Model):
+class FundVersion(models.Model):
     """
-    The FundAllocation model represents an allocation in a fund of a single
-    ticker. This is used for planning
+    The FundVersion model represents a version of a single fund
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
     fund = models.ForeignKey["Fund"](
-        "Fund",
+        "Fund", on_delete=models.CASCADE, related_name="versions"
+    )
+
+    parent = models.ForeignKey["FundVersion"](
+        "FundVersion",
+        on_delete=models.CASCADE,
+        related_name="children",
+        blank=True,
+        null=True,
+    )
+
+    active = models.BooleanField(default=False)
+
+    #: Total number of shares available to allocate
+    shares = models.PositiveIntegerField(default=1000)
+
+    allocations: QuerySet["FundVersionAllocation"]  # pyright: ignore[reportUninitializedInstanceVariable]
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["active"]),
+        ]
+
+    @override
+    def __str__(self) -> str:
+        return " - ".join(
+            [
+                self.fund.name,
+                self.created_at.strftime("%c"),
+            ]
+        )
+
+
+class FundVersionAllocation(models.Model):
+    """
+    The FundVersionAllocation model represents an allocation in a version of a
+    fund
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    version = models.ForeignKey["FundVersion"](
+        "FundVersion",
         on_delete=models.CASCADE,
         related_name="allocations",
     )
@@ -49,7 +107,10 @@ class FundAllocation(models.Model):
     )
 
     #: Total number of shares allocated to this ticker
-    shares = models.IntegerField(default=0)
+    shares = models.PositiveIntegerField(default=0)
 
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    class Meta:
+        unique_together = (
+            "version",
+            "ticker",
+        )
