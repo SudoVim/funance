@@ -1,6 +1,8 @@
 from decimal import Decimal
 from typing import cast
 
+from django_rq import job
+
 from holdings.fidelity import ActivityParser, StatementParser
 from holdings.models import (
     HoldingAccount,
@@ -12,6 +14,15 @@ from holdings.models import (
 )
 from holdings.positions.position import Position
 from holdings.positions.position_set import PositionSet
+
+
+@job("low")
+def parse_and_sync_positions(self: HoldingAccount) -> None:
+    """
+    Parse positions and then sync them to the database.
+    """
+    positions = parse_positions(self)
+    sync_positions(self, positions)
 
 
 def parse_positions(self: HoldingAccount) -> PositionSet:

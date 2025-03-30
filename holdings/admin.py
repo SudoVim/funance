@@ -10,7 +10,7 @@ from typing_extensions import override
 
 from django_helpers.admin import DHModelAdmin
 from django_helpers.links import get_admin_list_url
-from holdings.account import parse_positions, sync_positions
+from holdings.account import parse_and_sync_positions
 from holdings.models import (
     HoldingAccount,
     HoldingAccountAction,
@@ -118,7 +118,27 @@ class HoldingAccountAdmin(DHModelAdmin[HoldingAccount]):
             )
             return self.redirect_referrer(request)
 
-        _ = obj.positions.all().delete()
+        _ = (
+            HoldingAccountAction.objects.filter(
+                position__holding_account=obj,
+            )
+            .all()
+            .delete()
+        )
+        _ = (
+            HoldingAccountSale.objects.filter(
+                position__holding_account=obj,
+            )
+            .all()
+            .delete()
+        )
+        _ = (
+            HoldingAccountGeneration.objects.filter(
+                position__holding_account=obj,
+            )
+            .all()
+            .delete()
+        )
         return self.redirect_referrer(request)
 
     def parse_positions(self, request: HttpRequest, pk: Any) -> HttpResponse:
@@ -134,8 +154,7 @@ class HoldingAccountAdmin(DHModelAdmin[HoldingAccount]):
             )
             return self.redirect_referrer(request)
 
-        positions = parse_positions(obj)
-        sync_positions(obj, positions)
+        parse_and_sync_positions.delay(obj)
         return self.redirect_referrer(request)
 
     def update_tickers(self, request: HttpRequest, pk: Any) -> HttpResponse:
@@ -195,6 +214,7 @@ class HoldingAccountPositionAdmin(DHModelAdmin[HoldingAccountPosition]):
         "value|dollars",
         "holding_account",
         "links",
+        "action_buttons",
         "ticker_symbol",
         "total_sale_profit|dollars",
         "total_sale_interest|percent",
@@ -216,6 +236,7 @@ class HoldingAccountPositionAdmin(DHModelAdmin[HoldingAccountPosition]):
         "total_profit|dollars",
         "total_available_profit|dollars",
     )
+    change_actions = ("reset_position",)
 
     @override
     def get_queryset(self, request: HttpRequest) -> QuerySet[HoldingAccountPosition]:
@@ -230,11 +251,6 @@ class HoldingAccountPositionAdmin(DHModelAdmin[HoldingAccountPosition]):
         if not obj.ticker:
             return None
         return obj.ticker.price
-
-    def value(self, obj: HoldingAccountPosition) -> Decimal | None:
-        if not obj.ticker or not obj.ticker.price:
-            return None
-        return obj.available_purchases.potential_value(obj.ticker.price)
 
     def links(self, obj: HoldingAccountPosition) -> str:
         return format_html_join(
@@ -301,6 +317,24 @@ class HoldingAccountPositionAdmin(DHModelAdmin[HoldingAccountPosition]):
         if not obj.ticker or not obj.ticker.price:
             return None
         return obj.available_purchases.total_interest(obj.ticker.price)
+
+    def reset_position(self, request: HttpRequest, pk: Any) -> HttpResponse:
+        """
+        Reset this position by deleting actions, sales, and generations
+        """
+        obj = self.get_object(request, pk)
+        if not obj:
+            self.message_user(
+                request,
+                "Object not found.",
+                level="ERROR",
+            )
+            return self.redirect_referrer(request)
+
+        _ = obj.actions.all().delete()
+        _ = obj.sales.all().delete()
+        _ = obj.generations.all().delete()
+        return self.redirect_referrer(request)
 
 
 @admin.register(HoldingAccountGeneration)

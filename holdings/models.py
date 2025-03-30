@@ -236,6 +236,12 @@ class HoldingAccountPosition(models.Model):
     def total_interest(self) -> Decimal:
         return self.total_sale_interest + self.average_generation_interest
 
+    @cached_property
+    def value(self) -> Decimal | None:
+        if not self.ticker or not self.ticker.price:
+            return None
+        return self.available_purchases.potential_value(self.ticker.price)
+
 
 class HoldingAccountAction(models.Model):
     """
