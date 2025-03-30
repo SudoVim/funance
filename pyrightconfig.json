@@ -17,5 +17,6 @@
   "reportIncompatibleVariableOverride": false,
   "reportExplicitAny": false,
   "reportAny": false,
-  "reportUnusedParameter": false
+  "reportUnusedParameter": false,
+  "reportImportCycles": false
 }

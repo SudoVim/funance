@@ -1,11 +1,36 @@
 import uuid
+from typing import TYPE_CHECKING
 
 from django.db import models
 from django.db.models import QuerySet
 from typing_extensions import override
 
-from accounts.models import Account
-from tickers.models import Ticker
+if TYPE_CHECKING:
+    from accounts.models import Account
+    from tickers.models import Ticker
+
+
+class Portfolio(models.Model):
+    """
+    The Portfolio model represents multiple funds in a portfolio
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    owner = models.ForeignKey["Account"](
+        "accounts.Account", on_delete=models.CASCADE, related_name="portfolio"
+    )
+
+    name = models.CharField(max_length=64)
+
+    funds: QuerySet["Fund"]  # pyright: ignore[reportUninitializedInstanceVariable]
+
+    @override
+    def __str__(self) -> str:
+        return self.name
 
 
 class Fund(models.Model):
@@ -18,8 +43,16 @@ class Fund(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    owner = models.ForeignKey[Account](
+    owner = models.ForeignKey["Account"](
         "accounts.Account", on_delete=models.CASCADE, related_name="funds"
+    )
+
+    portfolio = models.ForeignKey["Portfolio"](
+        "Portfolio",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="funds",
     )
 
     active_version = models.OneToOneField(
@@ -100,7 +133,7 @@ class FundVersionAllocation(models.Model):
         on_delete=models.CASCADE,
         related_name="allocations",
     )
-    ticker = models.ForeignKey[Ticker](
+    ticker = models.ForeignKey["Ticker"](
         "tickers.Ticker",
         on_delete=models.CASCADE,
         related_name="fund_allocations",

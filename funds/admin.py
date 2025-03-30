@@ -9,7 +9,38 @@ from typing_extensions import override
 from django_helpers.admin import DHModelAdmin, DHModelTabularInline
 from django_helpers.links import get_admin_list_url
 from funds.funds import allocate_from_position
-from funds.models import Fund, FundVersion, FundVersionAllocation
+from funds.models import Fund, FundVersion, FundVersionAllocation, Portfolio
+from holdings.models import HoldingAccount
+
+
+class HoldingAccountInline(DHModelTabularInline[HoldingAccount]):
+    model = HoldingAccount
+    fields = (
+        "name",
+        "number",
+    )
+    readonly_fields = fields
+    extra = 0
+    show_change_link = True
+
+
+class FundInline(DHModelTabularInline[Fund]):
+    model = Fund
+    fields = (
+        "name",
+        "active_version",
+    )
+    readonly_fields = fields
+    extra = 0
+    show_change_link = True
+
+
+@admin.register(Portfolio)
+class PortfolioAdmin(DHModelAdmin[Portfolio]):
+    inlines = (
+        HoldingAccountInline,
+        FundInline,
+    )
 
 
 @admin.register(Fund)

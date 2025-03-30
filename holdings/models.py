@@ -1,13 +1,13 @@
 import datetime
 import uuid
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from django.db import models
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from typing_extensions import override
 
-from accounts.models import Account
 from holdings.positions.action import PositionAction
 from holdings.positions.action_list import ActionList
 from holdings.positions.available_purchases import AvailablePurchases
@@ -16,6 +16,10 @@ from holdings.positions.generation_list import GenerationList
 from holdings.positions.position import Position
 from holdings.positions.sale import PositionSale
 from holdings.positions.sale_list import SaleList
+
+if TYPE_CHECKING:
+    from accounts.models import Account
+    from funds.models import Portfolio
 
 
 class HoldingAccount(models.Model):
@@ -26,8 +30,16 @@ class HoldingAccount(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    owner = models.ForeignKey[Account](
+    owner = models.ForeignKey["Account"](
         "accounts.Account", on_delete=models.CASCADE, related_name="holding_accounts"
+    )
+
+    portfolio = models.ForeignKey["Portfolio"](
+        "funds.Portfolio",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="holding_accounts",
     )
 
     #: Name of the account
