@@ -37,14 +37,13 @@ def parse_positions(self: HoldingAccount) -> PositionSet:
         .order_by("-created_at")
         .first()
     )
-    assert statement is not None
-
-    positions = StatementParser(statement).parse_positions()
+    positions = PositionSet()
+    if statement is not None:
+        positions = StatementParser(statement).parse_positions()
 
     aliases = self.aliases_dict
     activities = self.documents.filter(
         document_type=HoldingAccountDocument.DocumentType.ACTIVITY,
-        created_at__gt=statement.created_at,
     ).order_by("order", "created_at")
     for activity in activities:
         parser = ActivityParser(activity, account_number=self.number, aliases=aliases)

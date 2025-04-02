@@ -15,6 +15,7 @@ start:
 run-debug:
 	$(DOCKER_COMPOSE) stop web
 	$(DOCKER_COMPOSE) run -ti -p 8005:8005 web python manage.py runserver 0.0.0.0:8005
+	$(DOCKER_COMPOSE) start web
 
 .PHONY: stop
 stop:

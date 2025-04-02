@@ -38,23 +38,15 @@ class PositionSet(Mapping[str, Position], Pythonable["PositionSetDict"], Copyabl
         date: datetime.date,
         quantity: Decimal,
         price: Decimal,
-        offset_cash: bool = True,
     ) -> PositionAction | None:
         """
         Add a buy action to this position set
         """
+        if symbol == "CASH":
+            return None
         action = self.ensure_position(symbol).add_buy(date, quantity, price)
         if action is None:
             return None
-
-        if offset_cash:
-            _ = self.add_sale(
-                "CASH",
-                date,
-                quantity * price,
-                Decimal("1"),
-                offset_cash=False,
-            )
 
         return action
 
@@ -64,7 +56,6 @@ class PositionSet(Mapping[str, Position], Pythonable["PositionSetDict"], Copyabl
         date: datetime.date,
         quantity: Decimal,
         price: Decimal,
-        offset_cash: bool = True,
     ) -> tuple[PositionAction | None, SaleList]:
         """
         Add a sell action to this position set
@@ -72,15 +63,6 @@ class PositionSet(Mapping[str, Position], Pythonable["PositionSetDict"], Copyabl
         action, sale_list = self.ensure_position(symbol).add_sale(date, quantity, price)
         if action is None:
             return None, SaleList()
-
-        if offset_cash:
-            _ = self.add_buy(
-                "CASH",
-                date,
-                quantity * price,
-                Decimal("1"),
-                offset_cash=False,
-            )
 
         return action, sale_list
 
@@ -90,7 +72,6 @@ class PositionSet(Mapping[str, Position], Pythonable["PositionSetDict"], Copyabl
         date: datetime.date,
         generation_type: GenerationType,
         amount: Decimal,
-        offset_cash: bool = True,
     ) -> PositionGeneration | None:
         """
         Add the given *generation* to this set of positions.
@@ -100,11 +81,6 @@ class PositionSet(Mapping[str, Position], Pythonable["PositionSetDict"], Copyabl
         )
         if generation is None:
             return None
-
-        if offset_cash:
-            _ = self.add_buy(
-                "CASH", date, generation.amount, Decimal("1"), offset_cash=False
-            )
 
         return generation
 

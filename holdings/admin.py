@@ -8,13 +8,14 @@ from django.http import HttpRequest, HttpResponse
 from django.utils.html import format_html_join
 from typing_extensions import override
 
-from django_helpers.admin import DHModelAdmin
+from django_helpers.admin import DHModelAdmin, DHModelTabularInline
 from django_helpers.links import get_admin_list_url
 from holdings.account import parse_and_sync_positions
 from holdings.models import (
     HoldingAccount,
     HoldingAccountAction,
     HoldingAccountAlias,
+    HoldingAccountCash,
     HoldingAccountDocument,
     HoldingAccountGeneration,
     HoldingAccountPosition,
@@ -22,6 +23,11 @@ from holdings.models import (
 )
 from tickers.models import Ticker
 from tickers.tickers import query_daily, query_info
+
+
+class HoldingAccountCashInline(DHModelTabularInline[HoldingAccountCash]):
+    model = HoldingAccountCash
+    extra = 0
 
 
 class HoldingAccountAliasInline(admin.TabularInline[HoldingAccountAlias]):
@@ -42,10 +48,11 @@ class HoldingAccountDocumentInline(admin.TabularInline[HoldingAccountDocument]):
 @admin.register(HoldingAccount)
 class HoldingAccountAdmin(DHModelAdmin[HoldingAccount]):
     inlines = (
+        HoldingAccountCashInline,
         HoldingAccountAliasInline,
         HoldingAccountDocumentInline,
     )
-    readonly_fields = ("links", "action_buttons")
+    readonly_fields = ("available_cash|dollars", "links", "action_buttons")
     change_actions = (
         "reset_positions",
         "parse_positions",
@@ -158,9 +165,6 @@ class HoldingAccountAdmin(DHModelAdmin[HoldingAccount]):
         return self.redirect_referrer(request)
 
     def update_tickers(self, request: HttpRequest, pk: Any) -> HttpResponse:
-        """
-        Parse positions represented in the attached documents.
-        """
         obj = self.get_object(request, pk)
         if not obj:
             self.message_user(

@@ -82,7 +82,6 @@ class StatementParser:
                         if cost_basis == "not applicable"
                         else Decimal(cost_basis) / Decimal(qty)
                     ),
-                    offset_cash=False,
                 )
 
         return list(iter_actions())
@@ -125,7 +124,11 @@ class ActivityParser:
             assert date is not None
             if row["Action"].strip().startswith("YOU BOUGHT"):
                 return date, 0
+            if row["Action"].strip().startswith("You bought"):
+                return date, 0
             if row["Action"].strip().startswith("YOU SOLD"):
+                return date, 1
+            if row["Action"].strip().startswith("You sold"):
                 return date, 1
             if row["Action"].strip().startswith("LONG-TERM CAP GAIN"):
                 return date, 2
@@ -196,8 +199,16 @@ class ActivityParser:
             _ = self.add_buy(positions, row)
             return
 
+        if action.startswith("You bought"):
+            _ = self.add_crypto_buy(positions, row)
+            return
+
         if action.startswith("YOU SOLD"):
             _ = self.add_sale(positions, row)
+            return
+
+        if action.startswith("You sold"):
+            _ = self.add_crypto_sale(positions, row)
             return
 
         if action.startswith("Electronic Funds Transfer Received"):
@@ -210,6 +221,12 @@ class ActivityParser:
 
         if action.startswith("OTHER CREDIT transfer"):
             _ = self.add_credit_transfer(positions, row)
+            return
+
+        if action.startswith("Transfer in from brokerage"):
+            return
+
+        if action.startswith("Transfer out to brokerage"):
             return
 
         # I don't have a way to interpret this, so let's just ignore it for
@@ -286,7 +303,6 @@ class ActivityParser:
             self.parse_date(row["Run Date"].strip()),
             "interest",
             Decimal(row["Amount"].strip()),
-            offset_cash=False,
         )
 
     def add_long_term_cap_gain(
@@ -360,8 +376,8 @@ class ActivityParser:
         Add a buy
         """
         action_toks = row["Action"].strip().split()
-        price = Decimal(row["Quantity"].strip())
-        quantity = Decimal(row["Price"].strip())
+        price = Decimal(row["Price"].strip())
+        quantity = Decimal(row["Quantity"].strip())
 
         # Bonds and CDs are priced out of $100
         if "BDS" in action_toks or "CD" in action_toks:
@@ -370,8 +386,24 @@ class ActivityParser:
         return positions.add_buy(
             self.apply_alias(row["Symbol"].strip()),
             self.parse_date(row["Run Date"].strip()),
-            price,
             quantity,
+            price,
+        )
+
+    def add_crypto_buy(
+        self, positions: PositionSet, row: dict[str, str]
+    ) -> AddBuyResponse:
+        """
+        Add a buy
+        """
+        price = Decimal(row["Price ($)"].strip())
+        quantity = Decimal(row["Quantity"].strip())
+
+        return positions.add_buy(
+            self.apply_alias(row["Symbol"].strip()),
+            self.parse_date(row["Run Date"].strip()),
+            quantity,
+            price,
         )
 
     def add_sale(self, positions: PositionSet, row: dict[str, str]) -> AddSaleResponse:
@@ -382,20 +414,27 @@ class ActivityParser:
             self.apply_alias(row["Symbol"].strip()),
             self.parse_date(row["Run Date"].strip()),
             Decimal(row["Quantity"].strip()) * -1,
-            Decimal(row["Price"].strip()),
+            Decimal(row["Price ($)"].strip()),
+        )
+
+    def add_crypto_sale(
+        self, positions: PositionSet, row: dict[str, str]
+    ) -> AddSaleResponse:
+        """
+        Add a sale
+        """
+        return positions.add_sale(
+            self.apply_alias(row["Symbol"].strip()),
+            self.parse_date(row["Run Date"].strip()),
+            Decimal(row["Quantity"].strip()) * -1,
+            Decimal(row["Price ($)"].strip()),
         )
 
     def add_eft(self, positions: PositionSet, row: dict[str, str]) -> AddBuyResponse:
         """
         Add an EFT
         """
-        return positions.add_buy(
-            "CASH",
-            self.parse_date(row["Run Date"].strip()),
-            Decimal(row["Amount"].strip()),
-            Decimal("1"),
-            offset_cash=False,
-        )
+        return None
 
     def add_debit_transfer(
         self, positions: PositionSet, row: dict[str, str]
@@ -403,13 +442,7 @@ class ActivityParser:
         """
         Add a transfer
         """
-        return positions.add_sale(
-            "CASH",
-            self.parse_date(row["Run Date"].strip()),
-            Decimal(row["Amount"].strip()) * -1,
-            Decimal("1"),
-            offset_cash=False,
-        )
+        return None, SaleList()
 
     def add_credit_transfer(
         self, positions: PositionSet, row: dict[str, str]
@@ -417,13 +450,7 @@ class ActivityParser:
         """
         Add a transfer
         """
-        return positions.add_buy(
-            "CASH",
-            self.parse_date(row["Run Date"].strip()),
-            Decimal(row["Amount"].strip()) * -1,
-            Decimal("1"),
-            offset_cash=False,
-        )
+        return None
 
     def add_reverse_split(self, positions: PositionSet, row: dict[str, str]) -> None:
         """

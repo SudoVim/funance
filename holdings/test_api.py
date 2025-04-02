@@ -1,13 +1,11 @@
 import datetime
 
-import pytz
 from django.test import TestCase
 from knox.models import AuthToken
 from rest_framework.exceptions import ErrorDetail
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 from accounts.models import Account
-from tickers.models import Ticker
 
 from .api import HoldingAccountViewSet
 from .models import HoldingAccount
@@ -81,7 +79,6 @@ class HoldingAccountsTestCase(BaseHoldingAccountTestCase):
                         "id": str(ha.id),
                         "name": "My Holding Account",
                         "currency": "USD",
-                        "available_cash": 0,
                         "created_at": response.data["results"][0]["created_at"],
                         "updated_at": response.data["results"][0]["updated_at"],
                     },
@@ -134,7 +131,6 @@ class HoldingAccountsTestCase(BaseHoldingAccountTestCase):
                 "id": response.data["id"],
                 "name": "My New Account",
                 "currency": "USD",
-                "available_cash": 0,
                 "created_at": response.data["created_at"],
                 "updated_at": response.data["updated_at"],
             },
@@ -182,7 +178,6 @@ class HoldingAccountTestCase(BaseHoldingAccountTestCase):
                 "id": str(self.ha.id),
                 "name": "My Holding Account",
                 "currency": "USD",
-                "available_cash": 0,
                 "created_at": response.data["created_at"],
                 "updated_at": response.data["updated_at"],
             },
@@ -206,7 +201,6 @@ class HoldingAccountTestCase(BaseHoldingAccountTestCase):
                 "id": str(self.ha.id),
                 "name": "New name",
                 "currency": "USD",
-                "available_cash": 0,
                 "created_at": response.data["created_at"],
                 "updated_at": response.data["updated_at"],
             },
