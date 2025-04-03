@@ -10,12 +10,10 @@ class HoldingAccountSerializer(serializers.HyperlinkedModelSerializer):
             "id",
             "name",
             "currency",
-            "available_cash",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
         extra_kwargs = {
             "currency": {"source": "currency_label"},
-            "available_cash": {"source": "available_cash_value"},
         }

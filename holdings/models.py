@@ -1,5 +1,6 @@
 import datetime
 import uuid
+from collections.abc import Mapping
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
@@ -8,6 +9,7 @@ from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from typing_extensions import override
 
+from django_helpers.prefetch import prefetch
 from holdings.positions.action import PositionAction
 from holdings.positions.action_list import ActionList
 from holdings.positions.available_purchases import AvailablePurchases
@@ -60,21 +62,49 @@ class HoldingAccount(models.Model):
     def currency_label(self):
         return self.Currency(self.currency).label
 
-    #: The amount of cash that's available for purchase
-    available_cash = models.DecimalField(
-        max_digits=32, decimal_places=4, default=Decimal("0")
-    )
-
-    @property
-    def available_cash_value(self) -> Decimal:
-        return self.available_cash
-
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    cash_amounts: models.QuerySet["HoldingAccountCash"]  # pyright: ignore[reportUninitializedInstanceVariable]
     aliases: models.QuerySet["HoldingAccountAlias"]  # pyright: ignore[reportUninitializedInstanceVariable]
     documents: models.QuerySet["HoldingAccountDocument"]  # pyright: ignore[reportUninitializedInstanceVariable]
     positions: models.QuerySet["HoldingAccountPosition"]  # pyright: ignore[reportUninitializedInstanceVariable]
+
+    class Prefetch:
+        AvailableCash = prefetch("cash_amounts")
+        PositionsByTicker = prefetch("positions", "ticker")
+        PositionValue = PositionsByTicker
+
+    @property
+    def available_cash(self) -> Decimal:
+        """
+        Cash available to this account
+        """
+        return Decimal(sum(c.total for c in self.cash_amounts.all()))
+
+    @cached_property
+    def positions_by_ticker(self) -> Mapping[str, "HoldingAccountPosition"]:
+        """
+        Mapping of positions by ticker symbol
+        """
+
+        def iterate_positions():
+            for position in self.positions.all():
+                if position.ticker is None:
+                    continue
+                yield position.ticker.symbol, position
+
+        return dict(iterate_positions())
+
+    @cached_property
+    def position_value(self) -> Decimal:
+        def iterate_positions():
+            for position in self.positions_by_ticker.values():
+                if position.value is None:
+                    continue
+                yield position.value
+
+        return Decimal(sum(iterate_positions()))
 
     @property
     def aliases_dict(self) -> dict[str, str]:
@@ -250,7 +280,7 @@ class HoldingAccountPosition(models.Model):
 
     @cached_property
     def value(self) -> Decimal | None:
-        if not self.ticker or not self.ticker.price:
+        if self.quantity is None or not self.ticker or not self.ticker.price:
             return None
         return self.available_purchases.potential_value(self.ticker.price)
 
@@ -500,3 +530,25 @@ class HoldingAccountDocument(models.Model):
     @override
     def __str__(self) -> str:
         return self.document.name.split("/")[-1]
+
+
+class HoldingAccountCash(models.Model):
+    """
+    Model representing an amount of cash associated with a
+    :class:`HoldingAccount`
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    holding_account = models.ForeignKey["HoldingAccount"](
+        "HoldingAccount",
+        on_delete=models.CASCADE,
+        related_name="cash_amounts",
+    )
+
+    name = models.CharField(max_length=64)
+
+    total = models.DecimalField(max_digits=32, decimal_places=4, default=Decimal("0"))
