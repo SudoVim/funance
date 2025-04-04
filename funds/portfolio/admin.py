@@ -10,8 +10,6 @@ from funds.models import Fund
 from funds.portfolio.models import Portfolio
 from funds.portfolio.portfolio import reset_shares_to_value, update_tickers
 from holdings.models import HoldingAccount
-from tickers.models import Ticker
-from tickers.tickers import query_daily, query_info
 
 
 class HoldingAccountInline(DHModelTabularInline[HoldingAccount]):

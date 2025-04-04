@@ -72,12 +72,16 @@ class Fund(models.Model):
 
     @property
     def portfolio_percentage(self) -> Decimal:
+        if self.portfolio is None:
+            return Decimal("0")
         if self.portfolio.shares == 0:
-            return Decimal('0')
-        return Decimal(self.active_version.portfolio_shares) / self.portfolio.shares
+            return Decimal("0")
+        return Decimal(self.portfolio_shares) / self.portfolio.shares
 
     @property
     def budget(self) -> Decimal:
+        if self.portfolio is None:
+            return Decimal("0")
         return self.portfolio_percentage * self.portfolio.total_value
 
     @override
