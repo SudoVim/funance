@@ -48,7 +48,7 @@ class HoldingAccount(models.Model):
     name = models.CharField(max_length=64)
 
     #: The unique account number
-    number = models.CharField(max_length=32)
+    number = models.CharField(max_length=64)
 
     class Currency(models.TextChoices):
         USD = ("US", _("USD"))
