@@ -414,7 +414,7 @@ class ActivityParser:
             self.apply_alias(row["Symbol"].strip()),
             self.parse_date(row["Run Date"].strip()),
             Decimal(row["Quantity"].strip()) * -1,
-            Decimal(row["Price ($)"].strip()),
+            Decimal(row["Price"].strip()),
         )
 
     def add_crypto_sale(
@@ -515,11 +515,19 @@ class ActivityParser:
         """
         Add a redemption payout (bond or CD has matured)
         """
+        action_toks = row["Action"].strip().split()
+        price = Decimal(row["Price"].strip())
+        quantity = Decimal(row["Quantity"].strip())
+
+        # Bonds and CDs are priced out of $100
+        if "BDS" in action_toks or "CD" in action_toks:
+            quantity /= 100
+
         return positions.add_sale(
             self.apply_alias(row["Symbol"].strip()),
             self.parse_date(row["Run Date"].strip()),
-            Decimal(row["Quantity"].strip()) * -1,
-            Decimal(row["Price"].strip()),
+            quantity * -1,
+            price,
         )
 
     def add_distribution(

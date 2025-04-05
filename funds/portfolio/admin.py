@@ -1,15 +1,24 @@
+import datetime
 from typing import Any
 
 from django.contrib import admin
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
+from django.utils.html import format_html_join
 from typing_extensions import override
 
 from django_helpers.admin import DHModelAdmin, DHModelTabularInline
+from django_helpers.links import get_admin_list_url
 from funds.models import Fund
-from funds.portfolio.models import Portfolio
+from funds.portfolio.models import Portfolio, PortfolioWeek
+from funds.portfolio.performance import sync_performance_weeks
 from funds.portfolio.portfolio import reset_shares_to_value, update_tickers
-from holdings.models import HoldingAccount
+from holdings.models import (
+    HoldingAccount,
+    HoldingAccountAction,
+    HoldingAccountGeneration,
+    HoldingAccountSale,
+)
 
 
 class HoldingAccountInline(DHModelTabularInline[HoldingAccount]):
@@ -69,9 +78,10 @@ class PortfolioAdmin(DHModelAdmin[Portfolio]):
         "cash_percent|percent",
         "cash_shares",
         "position_value|dollars",
+        "performance",
         "action_buttons",
     )
-    change_actions = ("update_tickers", "reset_shares_to_value")
+    change_actions = ("update_tickers", "reset_shares_to_value", "sync_performance")
 
     @override
     def get_queryset(self, request: HttpRequest) -> QuerySet[Portfolio]:
@@ -81,6 +91,23 @@ class PortfolioAdmin(DHModelAdmin[Portfolio]):
             .prefetch_related(
                 *(Portfolio.Prefetch.AvailableCash | Portfolio.Prefetch.PositionValue)
             )
+        )
+
+    def performance(self, obj: HoldingAccount) -> str:
+        return format_html_join(
+            " | ",
+            "{}",
+            [
+                [
+                    self.generate_link(
+                        get_admin_list_url(
+                            PortfolioWeek,
+                            {"portfolio__id__exact": obj.pk},
+                        ),
+                        "Weekly",
+                    )
+                ],
+            ],
         )
 
     def update_tickers(self, request: HttpRequest, pk: Any) -> HttpResponse:
@@ -108,3 +135,83 @@ class PortfolioAdmin(DHModelAdmin[Portfolio]):
 
         reset_shares_to_value(obj)
         return self.redirect_referrer(request)
+
+    def sync_performance(self, request: HttpRequest, pk: Any) -> HttpResponse:
+        obj = self.get_object(request, pk)
+        if not obj:
+            self.message_user(
+                request,
+                "Object not found.",
+                level="ERROR",
+            )
+            return self.redirect_referrer(request)
+
+        sync_performance_weeks.delay(obj)
+        return self.redirect_referrer(request)
+
+
+@admin.register(PortfolioWeek)
+class PortfolioWeekAdmin(DHModelAdmin[PortfolioWeek]):
+    list_display = (
+        "date",
+        "portfolio",
+        "sale_profit|dollars",
+        "sale_interest|percent",
+        "generation_profit|dollars",
+        "total_profit|dollars",
+        "net_cost_basis|dollars",
+    )
+    readonly_fields = ("links",)
+
+    def links(self, obj: PortfolioWeek) -> str:
+        return format_html_join(
+            " | ",
+            "{}",
+            [
+                [
+                    self.generate_link(
+                        get_admin_list_url(
+                            HoldingAccountAction,
+                            {
+                                "position__holding_account__portfolio__id__exact": obj.portfolio.pk,
+                                "purchased_on__gte": obj.date.strftime("%Y-%m-%d"),
+                                "purchased_on__lt": (
+                                    obj.date + datetime.timedelta(days=7)
+                                ).strftime("%Y-%m-%d"),
+                            },
+                        ),
+                        "Actions",
+                    )
+                ],
+                [
+                    self.generate_link(
+                        get_admin_list_url(
+                            HoldingAccountSale,
+                            {
+                                "position__holding_account__portfolio__id__exact": obj.portfolio.pk,
+                                "sale_date__gte": obj.date.strftime("%Y-%m-%d"),
+                                "sale_date__lt": (
+                                    obj.date + datetime.timedelta(days=7)
+                                ).strftime("%Y-%m-%d"),
+                            },
+                        ),
+                        "Sales",
+                    )
+                ],
+                [
+                    self.generate_link(
+                        get_admin_list_url(
+                            HoldingAccountGeneration,
+                            {
+                                "position__holding_account__portfolio__id__exact": obj.portfolio.pk,
+                                "date__gte": obj.date.strftime("%Y-%m-%d"),
+                                "date__lt": (
+                                    obj.date + datetime.timedelta(days=7)
+                                ).strftime("%Y-%m-%d"),
+                            },
+                        ),
+                        "Generations",
+                    )
+                ],
+            ],
+        )
