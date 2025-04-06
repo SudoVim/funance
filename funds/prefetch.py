@@ -22,3 +22,8 @@ class FundPrefetch:
     PositionPercentage = prefetch(
         "active_version", FundVersionPrefetch.PositionPercentage
     )
+
+
+class FuncVersionAllocationPrefetch:
+    PositionValue = prefetch("version", FundVersionPrefetch.PositionValue)
+    PositionPercentage = prefetch("version", FundVersionPrefetch.PositionPercentage)
