@@ -8,7 +8,12 @@ from typing_extensions import override
 
 from django_helpers.admin import DHModelAdmin, DHModelTabularInline
 from django_helpers.links import get_admin_list_url
-from funds.funds import allocate_from_position
+from funds.funds import (
+    activate,
+    allocate_from_position,
+    apply_suggestions,
+    create_new_version,
+)
 from funds.models import Fund, FundVersion, FundVersionAllocation
 from funds.portfolio.admin import *
 
@@ -64,14 +69,67 @@ class FundVersionAllocationInline(DHModelTabularInline[FundVersionAllocation]):
     model = FundVersionAllocation
     autocomplete_fields = ("ticker",)
     extra = 0
+    fields = (
+        "ticker",
+        "weekly_confidence",
+        "monthly_confidence",
+        "quarterly_confidence",
+        "position_value|dollars",
+        "position_percentage|percent",
+        "modifier",
+        "shares",
+        "suggested_shares|number",
+        "suggested_change_percent|percent",
+        "suggested_change|dollars",
+        "budget|dollars",
+        "budget_delta|dollars",
+        "budget_delta_shares",
+    )
+    readonly_fields = (
+        "position_value|dollars",
+        "position_percentage|percent",
+        "suggested_shares|number",
+        "suggested_change_percent|percent",
+        "suggested_change|dollars",
+        "budget|dollars",
+        "budget_delta|dollars",
+        "budget_delta_shares",
+    )
+
+    @override
+    def get_queryset(self, request: HttpRequest) -> QuerySet[FundVersionAllocation]:
+        return (
+            super()
+            .get_queryset(request)
+            .prefetch_related(
+                *(
+                    FundVersionAllocation.Prefetch.PositionPercentage
+                    | FundVersionAllocation.Prefetch.PositionValue
+                )
+            )
+        )
+
+
+class FundVersionChildrenInline(DHModelTabularInline[FundVersion]):
+    model = FundVersion
+    extra = 0
+    verbose_name_plural = "children"
 
 
 @admin.register(FundVersion)
 class FundVersionAdmin(DHModelAdmin[FundVersion]):
-    inlines = (FundVersionAllocationInline,)
-    change_actions = ("allocate_from_positions",)
+    inlines = (FundVersionAllocationInline, FundVersionChildrenInline)
+    change_actions = (
+        "allocate_from_positions",
+        "create_new_version",
+        "apply_suggestions",
+        "activate",
+    )
     readonly_fields = (
         "parent",
+        "active",
+        "budget|dollars",
+        "confidence|percent",
         "remaining_shares",
         "action_buttons",
     )
@@ -79,7 +137,17 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
 
     @override
     def get_queryset(self, request: HttpRequest) -> QuerySet[FundVersion]:
-        return super().get_queryset(request).order_by("-active", "-created_at")
+        return (
+            super()
+            .get_queryset(request)
+            .order_by("-active", "-created_at")
+            .prefetch_related(
+                *(
+                    FundVersion.Prefetch.PositionPercentage
+                    | FundVersion.Prefetch.PositionValue
+                )
+            )
+        )
 
     @override
     def get_readonly_fields(
@@ -104,6 +172,43 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
             )
             return self.redirect_referrer(request)
         allocate_from_position(obj)
+        return self.redirect_referrer(request)
+
+    def create_new_version(self, request: HttpRequest, pk: Any) -> HttpResponse:
+        obj = self.get_object(request, pk)
+        if not obj:
+            self.message_user(
+                request,
+                "Object not found.",
+                level="ERROR",
+            )
+            return self.redirect_referrer(request)
+        return self.redirect_change_model(
+            create_new_version(obj),
+        )
+
+    def apply_suggestions(self, request: HttpRequest, pk: Any) -> HttpResponse:
+        obj = self.get_object(request, pk)
+        if not obj:
+            self.message_user(
+                request,
+                "Object not found.",
+                level="ERROR",
+            )
+            return self.redirect_referrer(request)
+        apply_suggestions(obj)
+        return self.redirect_referrer(request)
+
+    def activate(self, request: HttpRequest, pk: Any) -> HttpResponse:
+        obj = self.get_object(request, pk)
+        if not obj:
+            self.message_user(
+                request,
+                "Object not found.",
+                level="ERROR",
+            )
+            return self.redirect_referrer(request)
+        activate(obj)
         return self.redirect_referrer(request)
 
     @override
