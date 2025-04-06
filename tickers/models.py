@@ -19,6 +19,10 @@ class Ticker(models.Model):
 
     holding_account_positions = models.QuerySet["HoldingAccountPosition"]
 
+    current_price = models.DecimalField(
+        max_digits=32, decimal_places=8, default=Decimal("0")
+    )
+
     @property
     def info(self) -> TickerInfoStore:
         """
@@ -43,10 +47,7 @@ class Ticker(models.Model):
 
     @property
     def price(self) -> Decimal | None:
-        latest_daily = self.latest_daily
-        if latest_daily is None:
-            return None
-        return Decimal(latest_daily.close)
+        return self.current_price
 
     @override
     def __str__(self) -> str:

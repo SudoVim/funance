@@ -1,3 +1,4 @@
+import datetime
 import uuid
 from decimal import Decimal
 from typing import TYPE_CHECKING
@@ -14,6 +15,7 @@ from holdings.models import HoldingAccount
 if TYPE_CHECKING:
     from accounts.models import Account
     from funds.models import Fund
+    from funds.portfolio.performance import Performance
 
 
 class Portfolio(models.Model):
@@ -36,6 +38,7 @@ class Portfolio(models.Model):
 
     funds: QuerySet["Fund"]  # pyright: ignore[reportUninitializedInstanceVariable]
     holding_accounts: QuerySet[HoldingAccount]  # pyright: ignore[reportUninitializedInstanceVariable]
+    weeks: QuerySet["PortfolioWeek"]  # pyright: ignore[reportUninitializedInstanceVariable]
 
     class Prefetch:
         AvailableCash = prefetch(
@@ -80,3 +83,55 @@ class Portfolio(models.Model):
     @override
     def __str__(self) -> str:
         return self.name
+
+
+class PortfolioWeek(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    portfolio = models.ForeignKey["Portfolio"](
+        "Portfolio",
+        on_delete=models.CASCADE,
+        related_name="weeks",
+    )
+
+    date = models.DateField()
+
+    sale_profit = models.DecimalField(
+        max_digits=32, decimal_places=8, blank=True, null=True
+    )
+    sale_interest = models.DecimalField(
+        max_digits=32, decimal_places=8, blank=True, null=True
+    )
+    generation_profit = models.DecimalField(
+        max_digits=32, decimal_places=8, blank=True, null=True
+    )
+    net_cost_basis = models.DecimalField(
+        max_digits=32, decimal_places=8, blank=True, null=True
+    )
+
+    @cached_property
+    def performance(self) -> "Performance":
+        from funds.portfolio.performance import Performance, PerformanceQuery
+
+        return Performance(
+            PerformanceQuery(
+                self.portfolio,
+                self.date,
+                self.date + datetime.timedelta(days=7),
+            ),
+        )
+
+    @property
+    def total_profit(self) -> Decimal | None:
+        if self.sale_profit is None or self.generation_profit is None:
+            return None
+        return self.sale_profit + self.generation_profit
+
+    class Meta:
+        unique_together = (
+            "portfolio",
+            "date",
+        )

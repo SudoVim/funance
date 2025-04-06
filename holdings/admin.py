@@ -343,7 +343,11 @@ class HoldingAccountPositionAdmin(DHModelAdmin[HoldingAccountPosition]):
 
 @admin.register(HoldingAccountGeneration)
 class HoldingAccountGenerationAdmin(DHModelAdmin[HoldingAccountGeneration]):
-    list_filter = ("position__holding_account",)
+    list_filter = (
+        "position__holding_account__portfolio",
+        "position__holding_account",
+        ("date", admin.DateFieldListFilter),
+    )
     list_display = (
         "date",
         "event",
@@ -392,7 +396,12 @@ class HoldingAccountGenerationAdmin(DHModelAdmin[HoldingAccountGeneration]):
 
 @admin.register(HoldingAccountAction)
 class HoldingAccountActionAdmin(DHModelAdmin[HoldingAccountAction]):
-    list_filter = ("position__holding_account", "has_remaining_quantity")
+    list_filter = (
+        "position__holding_account__portfolio",
+        "position__holding_account",
+        ("purchased_on", admin.DateFieldListFilter),
+        "has_remaining_quantity",
+    )
     list_display = (
         "purchased_on",
         "position__holding_account",
@@ -432,15 +441,19 @@ class HoldingAccountActionAdmin(DHModelAdmin[HoldingAccountAction]):
 
 @admin.register(HoldingAccountSale)
 class HoldingAccountSaleAdmin(DHModelAdmin[HoldingAccountSale]):
-    list_filter = ("position__holding_account",)
+    list_filter = (
+        "position__holding_account__portfolio",
+        "position__holding_account",
+        ("sale_date", admin.DateFieldListFilter),
+    )
     list_display = (
         "ticker_symbol",
-        "quantity",
+        "quantity|number",
         "purchase_date",
         "purchase_price",
         "sale_date",
-        "sale_price",
-        "profit",
+        "sale_price|dollars",
+        "profit|dollars",
     )
 
     @override

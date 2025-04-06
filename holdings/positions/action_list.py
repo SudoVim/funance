@@ -27,6 +27,20 @@ class ActionList(
         """
         return ActionList(a.add_split(new_symbol, proportion) for a in self)
 
+    def net_cost_basis(self) -> Decimal:
+        """
+        Calculate the net cost basis of contained actions
+        """
+
+        def iterate_cost_basis():
+            for action in self:
+                if action.action == "buy":
+                    yield action.cost_basis()
+                    continue
+                yield -action.cost_basis()
+
+        return Decimal(sum(iterate_cost_basis()))
+
     @override
     def append(self, item: PositionAction) -> bool:
         latest_action = None if len(self) == 0 else self[-1]
