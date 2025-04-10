@@ -45,6 +45,7 @@ class Portfolio(models.Model):
             "holding_accounts", HoldingAccount.Prefetch.AvailableCash
         )
         PositionValue = prefetch("funds", FundPrefetch.PositionValue)
+        PositionPercentage = prefetch("funds", FundPrefetch.PositionPercentage)
 
     @cached_property
     def position_shares(self) -> int:

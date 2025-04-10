@@ -107,6 +107,7 @@ class FundVersionAllocationInline(DHModelTabularInline[FundVersionAllocation]):
                     | FundVersionAllocation.Prefetch.PositionValue
                 )
             )
+            .order_by("-shares")
         )
 
 
@@ -129,7 +130,7 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
         "parent",
         "active",
         "budget|dollars",
-        "confidence|percent",
+        "confidence_percentage|percent",
         "remaining_shares",
         "action_buttons",
     )

@@ -50,6 +50,7 @@ class FundInline(DHModelTabularInline[Fund]):
         "portfolio_shares",
         "portfolio_percentage|percent",
         "budget|dollars",
+        "budget_delta|dollars",
     )
     readonly_fields = fields
     extra = 0
@@ -61,8 +62,9 @@ class FundInline(DHModelTabularInline[Fund]):
             super()
             .get_queryset(request)
             .prefetch_related(
-                *Fund.Prefetch.PositionValue,
+                *(Fund.Prefetch.PositionValue | Fund.Prefetch.PositionPercentage)
             )
+            .order_by("-active_version__portfolio_shares")
         )
 
 
@@ -89,7 +91,11 @@ class PortfolioAdmin(DHModelAdmin[Portfolio]):
             super()
             .get_queryset(request)
             .prefetch_related(
-                *(Portfolio.Prefetch.AvailableCash | Portfolio.Prefetch.PositionValue)
+                *(
+                    Portfolio.Prefetch.AvailableCash
+                    | Portfolio.Prefetch.PositionValue
+                    | Portfolio.Prefetch.PositionPercentage
+                )
             )
         )
 

@@ -7,6 +7,7 @@ from django.db import models
 from django.db.models import QuerySet
 from typing_extensions import override
 
+from funds.confidence import Confidence, ConfidenceList
 from funds.portfolio.models import *
 from funds.prefetch import (
     FuncVersionAllocationPrefetch,
@@ -85,6 +86,10 @@ class Fund(models.Model):
         if self.active_version is None:
             return Decimal("0")
         return self.active_version.budget
+
+    @property
+    def budget_delta(self) -> Decimal:
+        return self.budget - self.position_value
 
     @override
     def __str__(self) -> str:
@@ -182,24 +187,25 @@ class FundVersion(models.Model):
         return self.position_value / portfolio_value
 
     @cached_property
-    def max_confidence_shares(self) -> Decimal:
-        return Decimal("7")
+    def confidence(self) -> ConfidenceList:
+        def iterate_confidence():
+            for allocation in self.allocations.all():
+                for confidence in allocation.confidence:
+                    yield confidence
 
-    @cached_property
-    def unmodified_confidence_shares(self) -> Decimal:
-        return Decimal(
-            sum(a.unmodified_confidence_shares for a in self.allocations.all()),
-        )
+        return ConfidenceList(iterate_confidence())
 
     @cached_property
     def confidence_shares(self) -> Decimal:
-        return Decimal(
-            sum(a.confidence_shares for a in self.allocations.all()),
-        )
+        return self.confidence.confidence_shares
 
-    @property
-    def confidence(self) -> Decimal:
-        return self.unmodified_confidence_shares / self.max_confidence_shares
+    @cached_property
+    def confidence_percentage(self) -> Decimal:
+        return self.confidence.confidence
+
+    @cached_property
+    def unmodified_suggested_shares(self) -> int:
+        return sum(a.unmodified_suggested_shares for a in self.allocations.all())
 
     @override
     def __str__(self) -> str:
@@ -237,7 +243,7 @@ class FundVersionAllocation(models.Model):
     monthly_confidence = models.PositiveIntegerField(default=0)
     quarterly_confidence = models.PositiveIntegerField(default=0)
 
-    modifier = models.PositiveIntegerField(default=0)
+    modifier = models.IntegerField(default=100)
 
     #: Total number of shares allocated to this ticker
     shares = models.PositiveIntegerField(default=0)
@@ -287,22 +293,21 @@ class FundVersionAllocation(models.Model):
             return Decimal("0")
         return (self.budget_delta / self.ticker.current_price).quantize(Decimal("0.01"))
 
-    @property
-    def unmodified_confidence_shares(self) -> Decimal:
-        weekly_shares = (
-            (Decimal(self.weekly_confidence) / 100) * 1 * self.position_percentage
+    @cached_property
+    def confidence(self) -> ConfidenceList:
+        return ConfidenceList(
+            [
+                Confidence.weekly(self.weekly_confidence, self.position_percentage),
+                Confidence.monthly(self.monthly_confidence, self.position_percentage),
+                Confidence.quarterly(
+                    self.quarterly_confidence, self.position_percentage
+                ),
+            ],
         )
-        monthly_shares = (
-            (Decimal(self.monthly_confidence) / 100) * 2 * self.position_percentage
-        )
-        quarterly_shares = (
-            (Decimal(self.quarterly_confidence) / 100) * 4 * self.position_percentage
-        )
-        return weekly_shares + monthly_shares + quarterly_shares
 
-    @property
+    @cached_property
     def confidence_shares(self) -> Decimal:
-        return (Decimal(self.modifier) / 100 + 1) * self.unmodified_confidence_shares
+        return self.confidence.confidence_shares
 
     @property
     def confidence_percentage(self) -> Decimal:
@@ -311,14 +316,29 @@ class FundVersionAllocation(models.Model):
         return self.confidence_shares / self.version.confidence_shares
 
     @property
-    def suggested_shares(self) -> int:
+    def unmodified_suggested_shares(self) -> int:
+        """
+        The new amount of shares recommended based on the confidence
+        percentage, the shift percentage of the version, and the modifier.
+        """
         total_shares = int(self.confidence_percentage * self.version.shares)
+        confidence_change = (total_shares - self.shares) * (
+            Decimal(self.version.confidence_shift_percentage) / 100
+        )
         return (
-            int(
-                (total_shares - self.shares)
-                * (Decimal(self.version.confidence_shift_percentage) / 100)
+            max(
+                int(Decimal(self.modifier) / 100 * confidence_change),
+                -self.shares,
             )
             + self.shares
+        )
+
+    @property
+    def suggested_shares(self) -> int:
+        return int(
+            self.unmodified_suggested_shares
+            / self.version.unmodified_suggested_shares
+            * self.version.shares
         )
 
     @property
