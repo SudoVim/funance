@@ -76,9 +76,14 @@ class PortfolioAdmin(DHModelAdmin[Portfolio]):
     )
     readonly_fields = (
         "total_value|dollars",
+        "portfolio_confidence_percentage|percent",
+        "cash_confidence_percentage|percent",
         "available_cash|dollars",
         "cash_percent|percent",
-        "cash_shares",
+        "cash_shares|number",
+        "suggested_cash_shares|number",
+        "suggested_cash_change_percentage|percent",
+        "suggested_cash_change_amount|dollars",
         "position_value|dollars",
         "performance",
         "action_buttons",

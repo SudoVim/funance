@@ -36,6 +36,10 @@ class Portfolio(models.Model):
 
     shares = models.PositiveIntegerField(default=10000)
 
+    confidence_shift_percentage = models.PositiveIntegerField(default=20)
+
+    cash_modifier = models.IntegerField(default=100)
+
     funds: QuerySet["Fund"]  # pyright: ignore[reportUninitializedInstanceVariable]
     holding_accounts: QuerySet[HoldingAccount]  # pyright: ignore[reportUninitializedInstanceVariable]
     weeks: QuerySet["PortfolioWeek"]  # pyright: ignore[reportUninitializedInstanceVariable]
@@ -54,6 +58,47 @@ class Portfolio(models.Model):
     @property
     def cash_shares(self) -> int:
         return self.shares - self.position_shares
+
+    @property
+    def unmodified_suggested_cash_shares(self) -> int:
+        total_shares = int(self.cash_confidence_percentage * self.shares)
+        confidence_change = (total_shares - self.cash_shares) * (
+            Decimal(self.confidence_shift_percentage) / 100
+        )
+        return (
+            max(
+                int(Decimal(self.cash_modifier) / 100 * confidence_change),
+                -self.cash_shares,
+            )
+            + self.cash_shares
+        )
+
+    @cached_property
+    def unmodified_portfolio_shares(self) -> int:
+        def iterate_shares():
+            yield self.unmodified_suggested_cash_shares
+            for fund in self.funds.all():
+                if fund.active_version is None:
+                    continue
+                yield fund.active_version.unmodified_portfolio_shares
+
+        return sum(iterate_shares())
+
+    @property
+    def suggested_cash_shares(self) -> int:
+        return int(
+            self.unmodified_suggested_cash_shares
+            / self.unmodified_portfolio_shares
+            * self.shares
+        )
+
+    @property
+    def suggested_cash_change_percentage(self) -> Decimal:
+        return Decimal(self.suggested_cash_shares - self.cash_shares) / self.shares
+
+    @property
+    def suggested_cash_change_amount(self) -> Decimal:
+        return self.suggested_cash_change_percentage * self.total_value
 
     @property
     def total_value(self) -> Decimal:
@@ -80,6 +125,30 @@ class Portfolio(models.Model):
                 yield fund.position_value
 
         return Decimal(sum(iterate_position_value()))
+
+    @cached_property
+    def all_confidence(self) -> list[Decimal]:
+        def iterate_confidence():
+            for fund in self.funds.all():
+                if fund.active_version is None:
+                    continue
+                yield fund.active_version.confidence_percentage
+
+        return list(iterate_confidence())
+
+    @cached_property
+    def total_confidence(self) -> Decimal:
+        return Decimal(
+            sum(self.all_confidence),
+        )
+
+    @cached_property
+    def portfolio_confidence_percentage(self) -> Decimal:
+        return self.total_confidence / len(self.all_confidence)
+
+    @property
+    def cash_confidence_percentage(self) -> Decimal:
+        return Decimal("1") - self.portfolio_confidence_percentage
 
     @override
     def __str__(self) -> str:

@@ -15,6 +15,12 @@ class FundVersionPrefetch:
         "holding_accounts",
         HoldingAccount.Prefetch.PositionValue,
     )
+    PortfolioValue = prefetch(
+        "fund", "portfolio", "funds", "active_version", PositionValue
+    )
+    PortfolioPercentage = prefetch(
+        "fund", "portfolio", "funds", "active_version", PositionPercentage
+    )
 
 
 class FundPrefetch:
