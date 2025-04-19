@@ -122,6 +122,8 @@ class FundVersion(models.Model):
 
     portfolio_shares = models.PositiveIntegerField(default=1000)
 
+    portfolio_modifier = models.IntegerField(default=100)
+
     #: Total number of shares available to allocate
     shares = models.PositiveIntegerField(default=1000)
 
@@ -206,6 +208,54 @@ class FundVersion(models.Model):
     @cached_property
     def unmodified_suggested_shares(self) -> int:
         return sum(a.unmodified_suggested_shares for a in self.allocations.all())
+
+    @property
+    def portfolio_confidence_percentage(self) -> Decimal:
+        if self.fund.portfolio is None or self.fund.portfolio.total_confidence == 0:
+            return Decimal("0")
+        return self.confidence_percentage / self.fund.portfolio.total_confidence
+
+    @property
+    def unmodified_portfolio_shares(self) -> int:
+        if self.fund.portfolio is None:
+            return 0
+        total_shares = int(
+            self.portfolio_confidence_percentage * self.fund.portfolio.shares
+        )
+        confidence_change = (total_shares - self.portfolio_shares) * (
+            Decimal(self.fund.portfolio.confidence_shift_percentage) / 100
+        )
+        return (
+            max(
+                int(Decimal(self.portfolio_modifier) / 100 * confidence_change),
+                -self.portfolio_shares,
+            )
+            + self.portfolio_shares
+        )
+
+    @property
+    def suggested_portfolio_shares(self) -> int:
+        if (
+            self.fund.portfolio is None
+            or self.fund.portfolio.unmodified_portfolio_shares == 0
+        ):
+            return 0
+        return int(
+            self.unmodified_portfolio_shares
+            / self.fund.portfolio.unmodified_portfolio_shares
+            * self.fund.portfolio.shares
+        )
+
+    @property
+    def suggested_portfolio_change_percent(self) -> Decimal:
+        return (
+            Decimal(self.suggested_portfolio_shares - self.portfolio_shares)
+            / self.portfolio_shares
+        )
+
+    @property
+    def suggested_portfolio_change_value(self) -> Decimal:
+        return self.suggested_portfolio_change_percent * self.position_value
 
     @override
     def __str__(self) -> str:

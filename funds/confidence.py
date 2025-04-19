@@ -76,6 +76,13 @@ class Confidence:
             value_percent,
         )
 
+    def apply_percentage(self, value_percent: Decimal) -> Self:
+        return self.__class__(
+            self.confidence,
+            self.max_confidence_shares,
+            value_percent * value_percent,
+        )
+
 
 class ConfidenceList(Sequence[Confidence]):
     _confidences: list[Confidence]

@@ -120,6 +120,23 @@ class FundVersionChildrenInline(DHModelTabularInline[FundVersion]):
 @admin.register(FundVersion)
 class FundVersionAdmin(DHModelAdmin[FundVersion]):
     inlines = (FundVersionAllocationInline, FundVersionChildrenInline)
+    fields = (
+        "fund",
+        "parent",
+        "active",
+        "budget|dollars",
+        "position_value|dollars",
+        "confidence_percentage|percent",
+        "remaining_shares",
+        "portfolio_modifier",
+        "portfolio_shares",
+        "suggested_portfolio_shares|number",
+        "suggested_portfolio_change_percent|percent",
+        "suggested_portfolio_change_value|dollars",
+        "shares",
+        "confidence_shift_percentage",
+        "action_buttons",
+    )
     change_actions = (
         "allocate_from_positions",
         "create_new_version",
@@ -130,8 +147,12 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
         "parent",
         "active",
         "budget|dollars",
+        "position_value|dollars",
         "confidence_percentage|percent",
         "remaining_shares",
+        "suggested_portfolio_shares|number",
+        "suggested_portfolio_change_percent|percent",
+        "suggested_portfolio_change_value|dollars",
         "action_buttons",
     )
     list_display = "created_at", "fund", "active", "shares"
@@ -146,6 +167,8 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
                 *(
                     FundVersion.Prefetch.PositionPercentage
                     | FundVersion.Prefetch.PositionValue
+                    | FundVersion.Prefetch.PortfolioValue
+                    | FundVersion.Prefetch.PortfolioPercentage
                 )
             )
         )
