@@ -91,6 +91,30 @@ class Fund(models.Model):
     def budget_delta(self) -> Decimal:
         return self.budget - self.position_value
 
+    @property
+    def suggested_portfolio_change(self) -> int:
+        if self.active_version is None:
+            return 0
+        return self.active_version.suggested_portfolio_change
+
+    @property
+    def suggested_portfolio_shares(self) -> int:
+        if self.active_version is None:
+            return 0
+        return self.active_version.suggested_portfolio_shares
+
+    @property
+    def suggested_portfolio_change_percent(self) -> int:
+        if self.active_version is None:
+            return 0
+        return self.active_version.suggested_portfolio_change_percent
+
+    @property
+    def suggested_portfolio_change_value(self) -> int:
+        if self.active_version is None:
+            return 0
+        return self.active_version.suggested_portfolio_change_value
+
     @override
     def __str__(self) -> str:
         return self.name
@@ -152,6 +176,14 @@ class FundVersion(models.Model):
         if self.fund.portfolio is None:
             return Decimal("0")
         return self.portfolio_percentage * self.fund.portfolio.total_value
+
+    @property
+    def budget_delta(self) -> Decimal:
+        return self.budget - self.position_value
+
+    @property
+    def budget_delta_percent(self) -> Decimal:
+        return self.budget_delta / self.position_value
 
     @cached_property
     def ticker_set(self) -> set[str]:
@@ -216,35 +248,42 @@ class FundVersion(models.Model):
         return self.confidence_percentage / self.fund.portfolio.total_confidence
 
     @property
-    def unmodified_portfolio_shares(self) -> int:
+    def unmodified_portfolio_confidence_change(self) -> int:
         if self.fund.portfolio is None:
             return 0
         total_shares = int(
             self.portfolio_confidence_percentage * self.fund.portfolio.shares
         )
-        confidence_change = (total_shares - self.portfolio_shares) * (
-            Decimal(self.fund.portfolio.confidence_shift_percentage) / 100
-        )
-        return (
-            max(
-                int(Decimal(self.portfolio_modifier) / 100 * confidence_change),
-                -self.portfolio_shares,
-            )
-            + self.portfolio_shares
+        return int(
+            (total_shares - self.portfolio_shares)
+            * (Decimal(self.fund.portfolio.confidence_shift_percentage) / 100)
         )
 
     @property
-    def suggested_portfolio_shares(self) -> int:
+    def unmodified_portfolio_shares(self) -> int:
+        confidence_change = self.unmodified_portfolio_confidence_change
+        return max(confidence_change, -self.portfolio_shares) + self.portfolio_shares
+
+    @property
+    def suggested_portfolio_change(self) -> int:
         if (
             self.fund.portfolio is None
             or self.fund.portfolio.unmodified_portfolio_shares == 0
         ):
             return 0
-        return int(
-            self.unmodified_portfolio_shares
-            / self.fund.portfolio.unmodified_portfolio_shares
-            * self.fund.portfolio.shares
+        portfolio_change = (
+            int(
+                Decimal(self.unmodified_portfolio_shares)
+                / self.fund.portfolio.unmodified_portfolio_shares
+                * self.fund.portfolio.shares
+            )
+            - self.portfolio_shares
         )
+        return int(Decimal(portfolio_change) * self.portfolio_modifier / 100)
+
+    @property
+    def suggested_portfolio_shares(self) -> int:
+        return self.suggested_portfolio_change + self.portfolio_shares
 
     @property
     def suggested_portfolio_change_percent(self) -> Decimal:

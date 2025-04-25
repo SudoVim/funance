@@ -53,6 +53,8 @@ def create_new_version(self: FundVersion) -> FundVersion:
     fund_version = self.fund.versions.create(
         parent=self,
         portfolio_shares=self.portfolio_shares,
+        portfolio_modifier=self.portfolio_modifier,
+        confidence_shift_percentage=self.confidence_shift_percentage,
         shares=self.shares,
     )
 

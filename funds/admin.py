@@ -6,6 +6,7 @@ from django.http import HttpRequest, HttpResponse
 from django.utils.html import format_html_join
 from typing_extensions import override
 
+import funds.portfolio.admin  # pyright: ignore[reportUnusedImport]
 from django_helpers.admin import DHModelAdmin, DHModelTabularInline
 from django_helpers.links import get_admin_list_url
 from funds.funds import (
@@ -15,7 +16,6 @@ from funds.funds import (
     create_new_version,
 )
 from funds.models import Fund, FundVersion, FundVersionAllocation
-from funds.portfolio.admin import *
 
 
 @admin.register(Fund)
@@ -125,12 +125,15 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
         "parent",
         "active",
         "budget|dollars",
+        "budget_delta|dollars",
+        "budget_delta_percent|percent",
         "position_value|dollars",
         "confidence_percentage|percent",
         "remaining_shares",
         "portfolio_modifier",
         "portfolio_shares",
         "suggested_portfolio_shares|number",
+        "suggested_portfolio_change|number",
         "suggested_portfolio_change_percent|percent",
         "suggested_portfolio_change_value|dollars",
         "shares",
@@ -147,10 +150,13 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
         "parent",
         "active",
         "budget|dollars",
+        "budget_delta|dollars",
+        "budget_delta_percent|percent",
         "position_value|dollars",
         "confidence_percentage|percent",
         "remaining_shares",
         "suggested_portfolio_shares|number",
+        "suggested_portfolio_change|number",
         "suggested_portfolio_change_percent|percent",
         "suggested_portfolio_change_value|dollars",
         "action_buttons",
