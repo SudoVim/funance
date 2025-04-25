@@ -62,16 +62,11 @@ class Portfolio(models.Model):
     @property
     def unmodified_suggested_cash_shares(self) -> int:
         total_shares = int(self.cash_confidence_percentage * self.shares)
-        confidence_change = (total_shares - self.cash_shares) * (
-            Decimal(self.confidence_shift_percentage) / 100
+        confidence_change = int(
+            (total_shares - self.cash_shares)
+            * (Decimal(self.confidence_shift_percentage) / 100)
         )
-        return (
-            max(
-                int(Decimal(self.cash_modifier) / 100 * confidence_change),
-                -self.cash_shares,
-            )
-            + self.cash_shares
-        )
+        return max(confidence_change, -self.cash_shares) + self.cash_shares
 
     @cached_property
     def unmodified_portfolio_shares(self) -> int:
@@ -84,21 +79,38 @@ class Portfolio(models.Model):
 
         return sum(iterate_shares())
 
-    @property
+    @cached_property
     def suggested_cash_shares(self) -> int:
-        return int(
-            self.unmodified_suggested_cash_shares
-            / self.unmodified_portfolio_shares
-            * self.shares
-        )
+        def iterate_shares():
+            for fund in self.funds.all():
+                if fund.active_version is None:
+                    continue
+                yield fund.active_version.suggested_portfolio_shares
+
+        other_portfolio_shares = sum(iterate_shares())
+        return self.shares - other_portfolio_shares
+
+    @property
+    def suggested_cash_change_shares(self) -> int:
+        return self.suggested_cash_shares - self.cash_shares
 
     @property
     def suggested_cash_change_percentage(self) -> Decimal:
-        return Decimal(self.suggested_cash_shares - self.cash_shares) / self.shares
+        return Decimal(self.suggested_cash_change_shares) / self.shares
 
     @property
     def suggested_cash_change_amount(self) -> Decimal:
         return self.suggested_cash_change_percentage * self.total_value
+
+    @cached_property
+    def cash_budget_delta(self) -> Decimal:
+        def iterate_budget_delta():
+            for fund in self.funds.all():
+                if fund.active_version is None:
+                    continue
+                yield fund.active_version.budget_delta
+
+        return -1 * Decimal(sum(iterate_budget_delta()))
 
     @property
     def total_value(self) -> Decimal:

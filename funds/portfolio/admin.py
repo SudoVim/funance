@@ -9,10 +9,15 @@ from typing_extensions import override
 
 from django_helpers.admin import DHModelAdmin, DHModelTabularInline
 from django_helpers.links import get_admin_list_url
+from django_helpers.prefetch import prefetch
 from funds.models import Fund
 from funds.portfolio.models import Portfolio, PortfolioWeek
 from funds.portfolio.performance import sync_performance_weeks
-from funds.portfolio.portfolio import reset_shares_to_value, update_tickers
+from funds.portfolio.portfolio import (
+    apply_suggestions,
+    reset_shares_to_value,
+    update_tickers,
+)
 from holdings.models import (
     HoldingAccount,
     HoldingAccountAction,
@@ -51,6 +56,10 @@ class FundInline(DHModelTabularInline[Fund]):
         "portfolio_percentage|percent",
         "budget|dollars",
         "budget_delta|dollars",
+        "suggested_portfolio_shares|number",
+        "suggested_portfolio_change|number",
+        "suggested_portfolio_change_percent|percent",
+        "suggested_portfolio_change_value|dollars",
     )
     readonly_fields = fields
     extra = 0
@@ -62,7 +71,16 @@ class FundInline(DHModelTabularInline[Fund]):
             super()
             .get_queryset(request)
             .prefetch_related(
-                *(Fund.Prefetch.PositionValue | Fund.Prefetch.PositionPercentage)
+                *(
+                    Fund.Prefetch.PositionValue
+                    | Fund.Prefetch.PositionPercentage
+                    | prefetch(
+                        "portfolio",
+                        Portfolio.Prefetch.AvailableCash
+                        | Portfolio.Prefetch.PositionValue
+                        | Portfolio.Prefetch.PositionPercentage,
+                    )
+                )
             )
             .order_by("-active_version__portfolio_shares")
         )
@@ -84,11 +102,17 @@ class PortfolioAdmin(DHModelAdmin[Portfolio]):
         "suggested_cash_shares|number",
         "suggested_cash_change_percentage|percent",
         "suggested_cash_change_amount|dollars",
+        "cash_budget_delta|dollars",
         "position_value|dollars",
         "performance",
         "action_buttons",
     )
-    change_actions = ("update_tickers", "reset_shares_to_value", "sync_performance")
+    change_actions = (
+        "update_tickers",
+        "reset_shares_to_value",
+        "sync_performance",
+        "apply_portfolio_suggestions",
+    )
 
     @override
     def get_queryset(self, request: HttpRequest) -> QuerySet[Portfolio]:
@@ -158,6 +182,21 @@ class PortfolioAdmin(DHModelAdmin[Portfolio]):
             return self.redirect_referrer(request)
 
         sync_performance_weeks.delay(obj)
+        return self.redirect_referrer(request)
+
+    def apply_portfolio_suggestions(
+        self, request: HttpRequest, pk: Any
+    ) -> HttpResponse:
+        obj = self.get_object(request, pk)
+        if not obj:
+            self.message_user(
+                request,
+                "Object not found.",
+                level="ERROR",
+            )
+            return self.redirect_referrer(request)
+
+        apply_suggestions(obj)
         return self.redirect_referrer(request)
 
 
