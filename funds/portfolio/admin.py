@@ -10,6 +10,7 @@ from typing_extensions import override
 from django_helpers.admin import DHModelAdmin, DHModelTabularInline
 from django_helpers.links import get_admin_list_url
 from django_helpers.prefetch import prefetch
+from funds.funds import activate, create_new_version
 from funds.models import Fund
 from funds.portfolio.models import Portfolio, PortfolioWeek
 from funds.portfolio.performance import sync_performance_weeks
@@ -110,8 +111,9 @@ class PortfolioAdmin(DHModelAdmin[Portfolio]):
     change_actions = (
         "update_tickers",
         "reset_shares_to_value",
-        "sync_performance",
+        "create_new_versions",
         "apply_portfolio_suggestions",
+        "sync_performance",
     )
 
     @override
@@ -169,6 +171,23 @@ class PortfolioAdmin(DHModelAdmin[Portfolio]):
             return self.redirect_referrer(request)
 
         reset_shares_to_value(obj)
+        return self.redirect_referrer(request)
+
+    def create_new_versions(self, request: HttpRequest, pk: Any) -> HttpResponse:
+        obj = self.get_object(request, pk)
+        if not obj:
+            self.message_user(
+                request,
+                "Object not found.",
+                level="ERROR",
+            )
+            return self.redirect_referrer(request)
+
+        for fund in obj.funds.all():
+            if not fund.active_version:
+                continue
+            new_version = create_new_version(fund.active_version)
+            activate(new_version)
         return self.redirect_referrer(request)
 
     def sync_performance(self, request: HttpRequest, pk: Any) -> HttpResponse:

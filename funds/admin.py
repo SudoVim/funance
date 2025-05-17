@@ -14,6 +14,7 @@ from funds.funds import (
     allocate_from_position,
     apply_suggestions,
     create_new_version,
+    reset_portfolio_to_value,
 )
 from funds.models import Fund, FundVersion, FundVersionAllocation
 
@@ -143,6 +144,7 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
     change_actions = (
         "allocate_from_positions",
         "create_new_version",
+        "reset_portfolio_to_value",
         "apply_suggestions",
         "activate",
     )
@@ -216,6 +218,18 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
         return self.redirect_change_model(
             create_new_version(obj),
         )
+
+    def reset_portfolio_to_value(self, request: HttpRequest, pk: Any) -> HttpResponse:
+        obj = self.get_object(request, pk)
+        if not obj:
+            self.message_user(
+                request,
+                "Object not found.",
+                level="ERROR",
+            )
+            return self.redirect_referrer(request)
+        reset_portfolio_to_value(obj)
+        return self.redirect_referrer(request)
 
     def apply_suggestions(self, request: HttpRequest, pk: Any) -> HttpResponse:
         obj = self.get_object(request, pk)

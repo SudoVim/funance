@@ -399,6 +399,7 @@ class HoldingAccountActionAdmin(DHModelAdmin[HoldingAccountAction]):
     list_filter = (
         "position__holding_account__portfolio",
         "position__holding_account",
+        "position__ticker__symbol",
         ("purchased_on", admin.DateFieldListFilter),
         "has_remaining_quantity",
     )

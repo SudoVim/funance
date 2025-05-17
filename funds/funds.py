@@ -115,3 +115,12 @@ def activate(self: FundVersion) -> None:
 
     self.fund.active_version = self  # pyright: ignore[reportAttributeAccessIssue]
     self.fund.save()
+
+
+def reset_portfolio_to_value(self: FundVersion) -> None:
+    """
+    Reset portfolio shares to this fund's relative value
+    """
+    assert self.fund.portfolio is not None
+    self.portfolio_shares = int(self.position_percentage * self.fund.portfolio.shares)
+    self.save()
