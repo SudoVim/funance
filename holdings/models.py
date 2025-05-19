@@ -282,7 +282,7 @@ class HoldingAccountPosition(models.Model):
     def value(self) -> Decimal | None:
         if self.quantity is None or not self.ticker or not self.ticker.price:
             return None
-        return self.available_purchases.potential_value(self.ticker.price)
+        return self.quantity * self.ticker.price
 
 
 class HoldingAccountAction(models.Model):
