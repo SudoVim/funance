@@ -186,6 +186,7 @@ class PortfolioVersion(models.Model):
         "Portfolio",
         on_delete=models.CASCADE,
         related_name="versions",
+        editable=False,
     )
 
     parent = models.ForeignKey["PortfolioVersion"](
@@ -194,18 +195,20 @@ class PortfolioVersion(models.Model):
         related_name="children",
         blank=True,
         null=True,
+        editable=False,
     )
 
-    active = models.BooleanField(default=False)
+    active = models.BooleanField(default=False, editable=False)
 
-    started_at = models.DateTimeField(blank=True, null=True)
-    ended_at = models.DateTimeField(blank=True, null=True)
+    started_at = models.DateTimeField(blank=True, null=True, editable=False)
+    ended_at = models.DateTimeField(blank=True, null=True, editable=False)
 
     start_cash = models.DecimalField(
         max_digits=32,
         decimal_places=8,
         blank=True,
         null=True,
+        editable=False,
     )
 
     start_value = models.DecimalField(
@@ -213,13 +216,38 @@ class PortfolioVersion(models.Model):
         decimal_places=8,
         blank=True,
         null=True,
+        editable=False,
     )
+
+    @cached_property
+    def current_cash(self) -> Decimal:
+        """
+        The current cash value of this portfolio.
+        """
+        if self.end_cash is not None:
+            return self.end_cash
+        return self.portfolio.available_cash
+
+    @cached_property
+    def current_value(self) -> Decimal:
+        """
+        The current position value of this portfolio.
+        """
+        if self.end_value is not None:
+            return self.end_value
+
+        def iterate_value_totals():
+            for fund_version in self.fund_versions.all():
+                yield fund_version.position_value
+
+        return Decimal(sum(iterate_value_totals()))
 
     end_cash = models.DecimalField(
         max_digits=32,
         decimal_places=8,
         blank=True,
         null=True,
+        editable=False,
     )
 
     end_value = models.DecimalField(
@@ -227,12 +255,29 @@ class PortfolioVersion(models.Model):
         decimal_places=8,
         blank=True,
         null=True,
+        editable=False,
     )
 
     fund_versions: QuerySet["FundVersion"]  # pyright: ignore[reportUninitializedInstanceVariable]
 
     class Meta:
         ordering = ("-created_at",)
+
+    @property
+    def start_budget(self) -> Decimal:
+        return (self.start_cash or Decimal("0")) + (self.start_value or Decimal("0"))
+
+    @property
+    def current_budget(self) -> Decimal:
+        return (self.current_cash or Decimal("0")) + (
+            self.current_value or Decimal("0")
+        )
+
+    @property
+    def end_budget(self) -> Decimal | None:
+        if self.end_cash is None or self.end_value is None:
+            return None
+        return self.end_cash + self.end_value
 
     @property
     def change(self) -> Decimal | None:

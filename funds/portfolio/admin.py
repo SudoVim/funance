@@ -1,4 +1,5 @@
 import datetime
+from decimal import Decimal
 from typing import Any
 
 from django.contrib import admin
@@ -8,7 +9,8 @@ from django.utils.html import format_html_join
 from typing_extensions import override
 
 from django_helpers.admin import DHModelAdmin, DHModelTabularInline
-from django_helpers.links import get_admin_list_url
+from django_helpers.admin_filters import format_dollars, format_percent
+from django_helpers.links import get_admin_change_url, get_admin_list_url
 from django_helpers.prefetch import prefetch
 from funds.models import Fund, FundVersion
 from funds.portfolio.models import Portfolio, PortfolioVersion, PortfolioWeek
@@ -107,6 +109,7 @@ class PortfolioAdmin(DHModelAdmin[Portfolio]):
         "cash_budget_delta|dollars",
         "position_value|dollars",
         "performance",
+        "links",
         "action_buttons",
     )
     change_actions = (
@@ -131,7 +134,7 @@ class PortfolioAdmin(DHModelAdmin[Portfolio]):
             )
         )
 
-    def performance(self, obj: HoldingAccount) -> str:
+    def performance(self, obj: Portfolio) -> str:
         return format_html_join(
             " | ",
             "{}",
@@ -146,6 +149,31 @@ class PortfolioAdmin(DHModelAdmin[Portfolio]):
                     )
                 ],
             ],
+        )
+
+    def links(self, obj: Portfolio) -> str:
+        def iterate_links():
+            if obj.active_version:
+                yield [
+                    self.generate_link(
+                        get_admin_change_url(obj.active_version),
+                        "Active version",
+                    ),
+                ]
+            yield [
+                self.generate_link(
+                    get_admin_list_url(
+                        PortfolioVersion,
+                        {"portfolio__id__exact": obj.pk},
+                    ),
+                    "All versions",
+                )
+            ]
+
+        return format_html_join(
+            " | ",
+            "{}",
+            list(iterate_links()),
         )
 
     def update_tickers(self, request: HttpRequest, pk: Any) -> HttpResponse:
@@ -287,11 +315,30 @@ class FundVersionInline(DHModelTabularInline[FundVersion]):
     fields = (
         "fund",
         "start_value|dollars",
+        "current_value|dollars",
         "end_value|dollars",
-        "change|dollars",
         "change_percent|percent",
+        "change|dollars",
     )
     readonly_fields = fields
+    extra = 0
+
+    @override
+    def get_queryset(self, request: HttpRequest) -> QuerySet[FundVersion]:
+        return super().get_queryset(request).order_by("-start_value")
+
+    def current_value(self, obj: FundVersion) -> Decimal:
+        return obj.position_value
+
+    def change_percent(self, obj: FundVersion) -> Decimal | None:
+        if obj.start_value is None:
+            return None
+        return obj.position_value / obj.start_value - 1
+
+    def change(self, obj: FundVersion) -> Decimal | None:
+        if obj.start_value is None:
+            return None
+        return obj.position_value - obj.start_value
 
 
 @admin.register(PortfolioVersion)
@@ -306,11 +353,79 @@ class PortfolioVersionAdmin(DHModelAdmin[PortfolioVersion]):
         "change_percent|percent",
     )
     readonly_fields = (
+        "created_at",
+        "updated_at",
+        "portfolio",
+        "parent",
+        "active",
+        "started_at",
+        "ended_at",
+        "values",
         "links",
         "action_buttons",
     )
     change_actions = ("update_end_value",)
     inlines = (FundVersionInline,)
+
+    @override
+    def get_queryset(self, request: HttpRequest) -> QuerySet[PortfolioVersion]:
+        return (
+            super()
+            .get_queryset(request)
+            .prefetch_related(
+                *(
+                    prefetch("portfolio", Portfolio.Prefetch.AvailableCash)
+                    | prefetch("fund_versions", FundVersion.Prefetch.PositionValue)
+                )
+            )
+        )
+
+    def values(self, obj: PortfolioVersion) -> str:
+        def iterate_rows():
+            yield [
+                "Cash",
+                format_dollars(obj.start_cash),
+                format_dollars(obj.current_cash),
+                format_dollars(obj.end_cash),
+                "--"
+                if obj.start_cash is None
+                else format_percent(obj.current_cash / obj.start_cash - 1),
+                "--"
+                if obj.start_cash is None
+                else format_dollars(obj.current_cash - obj.start_cash),
+            ]
+            yield [
+                "Positions",
+                format_dollars(obj.start_value),
+                format_dollars(obj.current_value),
+                format_dollars(obj.end_value),
+                "--"
+                if obj.start_value is None
+                else format_percent(obj.current_value / obj.start_value - 1),
+                "--"
+                if obj.start_value is None
+                else format_dollars(obj.current_value - obj.start_value),
+            ]
+            yield [
+                "Total",
+                format_dollars(obj.start_budget),
+                format_dollars(obj.current_budget),
+                format_dollars(obj.end_budget),
+                format_percent(obj.current_budget / obj.start_budget - 1),
+                format_dollars(obj.current_budget - obj.start_budget),
+            ]
+
+        return self.generate_table(
+            [
+                "Type",
+                "Start",
+                "Current",
+                "End",
+                "Change %",
+                "Change $",
+            ],
+            list(iterate_rows()),
+        )
 
     def links(self, obj: PortfolioVersion) -> str:
         def iterate_links():
