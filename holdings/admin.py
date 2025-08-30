@@ -346,6 +346,7 @@ class HoldingAccountGenerationAdmin(DHModelAdmin[HoldingAccountGeneration]):
     list_filter = (
         "position__holding_account__portfolio",
         "position__holding_account",
+        "position__ticker__symbol",
         ("date", admin.DateFieldListFilter),
     )
     list_display = (
@@ -410,6 +411,7 @@ class HoldingAccountActionAdmin(DHModelAdmin[HoldingAccountAction]):
         "action",
         "price|dollars",
         "quantity|number",
+        "investment|dollars",
         "remaining_quantity|number",
         "potential_profit|dollars",
         "potential_interest|percent",
@@ -439,22 +441,27 @@ class HoldingAccountActionAdmin(DHModelAdmin[HoldingAccountAction]):
                 obj.position.ticker.price,
             )
 
+    def investment(self, obj: HoldingAccountAction) -> Decimal:
+        return obj.position_action.investment
+
 
 @admin.register(HoldingAccountSale)
 class HoldingAccountSaleAdmin(DHModelAdmin[HoldingAccountSale]):
     list_filter = (
         "position__holding_account__portfolio",
         "position__holding_account",
+        "position__ticker__symbol",
         ("sale_date", admin.DateFieldListFilter),
     )
     list_display = (
         "ticker_symbol",
         "quantity|number",
         "purchase_date",
-        "purchase_price",
+        "purchase_price|dollars",
         "sale_date",
         "sale_price|dollars",
         "profit|dollars",
+        "interest|percent",
     )
 
     @override
@@ -463,3 +470,6 @@ class HoldingAccountSaleAdmin(DHModelAdmin[HoldingAccountSale]):
 
     def ticker_symbol(self, obj: HoldingAccountSale) -> str:
         return obj.position.ticker_symbol
+
+    def interest(self, obj: HoldingAccountSale) -> Decimal:
+        return obj.position_sale.interest()

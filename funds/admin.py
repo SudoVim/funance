@@ -124,6 +124,7 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
     fields = (
         "fund",
         "parent",
+        "portfolio_version",
         "active",
         "budget|dollars",
         "budget_delta|dollars",
@@ -150,6 +151,7 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
     )
     readonly_fields = (
         "parent",
+        "portfolio_version",
         "active",
         "budget|dollars",
         "budget_delta|dollars",
@@ -163,7 +165,16 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
         "suggested_portfolio_change_value|dollars",
         "action_buttons",
     )
-    list_display = "created_at", "fund", "active", "shares"
+    list_display = (
+        "created_at",
+        "fund",
+        "active",
+        "shares",
+        "start_value|dollars",
+        "end_value|dollars",
+        "change|dollars",
+        "change_percent|percent",
+    )
 
     @override
     def get_queryset(self, request: HttpRequest) -> QuerySet[FundVersion]:

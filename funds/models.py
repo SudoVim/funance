@@ -142,6 +142,14 @@ class FundVersion(models.Model):
         null=True,
     )
 
+    portfolio_version = models.ForeignKey(
+        "PortfolioVersion",
+        on_delete=models.SET_NULL,
+        related_name="fund_versions",
+        blank=True,
+        null=True,
+    )
+
     active = models.BooleanField(default=False)
 
     portfolio_shares = models.PositiveIntegerField(default=1000)
@@ -152,6 +160,20 @@ class FundVersion(models.Model):
     shares = models.PositiveIntegerField(default=1000)
 
     confidence_shift_percentage = models.PositiveIntegerField(default=20)
+
+    start_value = models.DecimalField(
+        max_digits=32,
+        decimal_places=8,
+        blank=True,
+        null=True,
+    )
+
+    end_value = models.DecimalField(
+        max_digits=32,
+        decimal_places=8,
+        blank=True,
+        null=True,
+    )
 
     allocations: QuerySet["FundVersionAllocation"]  # pyright: ignore[reportUninitializedInstanceVariable]
     children: QuerySet["FundVersion"]  # pyright: ignore[reportUninitializedInstanceVariable]
@@ -296,6 +318,17 @@ class FundVersion(models.Model):
     def suggested_portfolio_change_value(self) -> Decimal:
         return self.suggested_portfolio_change_percent * self.position_value
 
+    @property
+    def change(self) -> Decimal | None:
+        if self.start_value is None or self.end_value is None:
+            return None
+        return self.end_value - self.start_value
+
+    def change_percent(self) -> Decimal | None:
+        if self.start_value is None or self.change is None:
+            return None
+        return self.change / self.start_value
+
     @override
     def __str__(self) -> str:
         return " - ".join(
@@ -336,6 +369,20 @@ class FundVersionAllocation(models.Model):
 
     #: Total number of shares allocated to this ticker
     shares = models.PositiveIntegerField(default=0)
+
+    start_value = models.DecimalField(
+        max_digits=32,
+        decimal_places=8,
+        blank=True,
+        null=True,
+    )
+
+    end_value = models.DecimalField(
+        max_digits=32,
+        decimal_places=8,
+        blank=True,
+        null=True,
+    )
 
     Prefetch = FuncVersionAllocationPrefetch
 
