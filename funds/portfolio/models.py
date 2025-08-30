@@ -14,7 +14,7 @@ from holdings.models import HoldingAccount
 
 if TYPE_CHECKING:
     from accounts.models import Account
-    from funds.models import Fund
+    from funds.models import Fund, FundVersion
     from funds.portfolio.performance import Performance
 
 
@@ -40,8 +40,17 @@ class Portfolio(models.Model):
 
     cash_modifier = models.IntegerField(default=100)
 
+    active_version = models.OneToOneField["PortfolioVersion"](
+        "PortfolioVersion",
+        on_delete=models.SET_NULL,
+        related_name="+",
+        blank=True,
+        null=True,
+    )
+
     funds: QuerySet["Fund"]  # pyright: ignore[reportUninitializedInstanceVariable]
     holding_accounts: QuerySet[HoldingAccount]  # pyright: ignore[reportUninitializedInstanceVariable]
+    versions: QuerySet["PortfolioVersion"]  # pyright: ignore[reportUninitializedInstanceVariable]
     weeks: QuerySet["PortfolioWeek"]  # pyright: ignore[reportUninitializedInstanceVariable]
 
     class Prefetch:
@@ -167,6 +176,77 @@ class Portfolio(models.Model):
         return self.name
 
 
+class PortfolioVersion(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    portfolio = models.ForeignKey["Portfolio"](
+        "Portfolio",
+        on_delete=models.CASCADE,
+        related_name="versions",
+    )
+
+    parent = models.ForeignKey["PortfolioVersion"](
+        "PortfolioVersion",
+        on_delete=models.CASCADE,
+        related_name="children",
+        blank=True,
+        null=True,
+    )
+
+    active = models.BooleanField(default=False)
+
+    started_at = models.DateTimeField(blank=True, null=True)
+    ended_at = models.DateTimeField(blank=True, null=True)
+
+    start_cash = models.DecimalField(
+        max_digits=32,
+        decimal_places=8,
+        blank=True,
+        null=True,
+    )
+
+    start_value = models.DecimalField(
+        max_digits=32,
+        decimal_places=8,
+        blank=True,
+        null=True,
+    )
+
+    end_cash = models.DecimalField(
+        max_digits=32,
+        decimal_places=8,
+        blank=True,
+        null=True,
+    )
+
+    end_value = models.DecimalField(
+        max_digits=32,
+        decimal_places=8,
+        blank=True,
+        null=True,
+    )
+
+    fund_versions: QuerySet["FundVersion"]  # pyright: ignore[reportUninitializedInstanceVariable]
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    @property
+    def change(self) -> Decimal | None:
+        if self.end_value is None or self.start_value is None:
+            return None
+        return self.end_value - self.start_value
+
+    @property
+    def change_percent(self) -> Decimal | None:
+        if self.change is None or self.start_value is None:
+            return None
+        return self.change / self.start_value
+
+
 class PortfolioWeek(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
@@ -217,3 +297,4 @@ class PortfolioWeek(models.Model):
             "portfolio",
             "date",
         )
+        ordering = ("-date",)

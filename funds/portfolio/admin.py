@@ -10,14 +10,15 @@ from typing_extensions import override
 from django_helpers.admin import DHModelAdmin, DHModelTabularInline
 from django_helpers.links import get_admin_list_url
 from django_helpers.prefetch import prefetch
-from funds.funds import activate, create_new_version
-from funds.models import Fund
-from funds.portfolio.models import Portfolio, PortfolioWeek
+from funds.models import Fund, FundVersion
+from funds.portfolio.models import Portfolio, PortfolioVersion, PortfolioWeek
 from funds.portfolio.performance import sync_performance_weeks
 from funds.portfolio.portfolio import (
     apply_suggestions,
+    create_new_versions,
     reset_shares_to_value,
     update_tickers,
+    update_version_end_value,
 )
 from holdings.models import (
     HoldingAccount,
@@ -182,12 +183,7 @@ class PortfolioAdmin(DHModelAdmin[Portfolio]):
                 level="ERROR",
             )
             return self.redirect_referrer(request)
-
-        for fund in obj.funds.all():
-            if not fund.active_version:
-                continue
-            new_version = create_new_version(fund.active_version)
-            activate(new_version)
+        create_new_versions(obj)
         return self.redirect_referrer(request)
 
     def sync_performance(self, request: HttpRequest, pk: Any) -> HttpResponse:
@@ -284,3 +280,67 @@ class PortfolioWeekAdmin(DHModelAdmin[PortfolioWeek]):
                 ],
             ],
         )
+
+
+class FundVersionInline(DHModelTabularInline[FundVersion]):
+    model = FundVersion
+    fields = (
+        "fund",
+        "start_value|dollars",
+        "end_value|dollars",
+        "change|dollars",
+        "change_percent|percent",
+    )
+    readonly_fields = fields
+
+
+@admin.register(PortfolioVersion)
+class PortfolioVersionAdmin(DHModelAdmin[PortfolioVersion]):
+    list_display = (
+        "created_at",
+        "portfolio",
+        "active",
+        "start_value|dollars",
+        "end_value|dollars",
+        "change|dollars",
+        "change_percent|percent",
+    )
+    readonly_fields = (
+        "links",
+        "action_buttons",
+    )
+    change_actions = ("update_end_value",)
+    inlines = (FundVersionInline,)
+
+    def links(self, obj: PortfolioVersion) -> str:
+        def iterate_links():
+            yield [
+                self.generate_link(
+                    get_admin_list_url(
+                        FundVersion,
+                        {
+                            "portfolio_version__id__exact": obj.pk,
+                        },
+                    ),
+                    "Fund Versions",
+                )
+            ]
+
+        return format_html_join(
+            " | ",
+            "{}",
+            list(iterate_links()),
+        )
+
+    def update_end_value(self, request: HttpRequest, pk: Any) -> HttpResponse:
+        obj = self.get_object(request, pk)
+        if not obj:
+            self.message_user(
+                request,
+                "Object not found.",
+                level="ERROR",
+            )
+            return self.redirect_referrer(request)
+
+        update_version_end_value(obj)
+        return self.redirect_referrer(request)
