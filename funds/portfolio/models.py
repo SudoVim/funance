@@ -1,7 +1,7 @@
 import datetime
 import uuid
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from django.db import models
 from django.db.models import QuerySet
@@ -111,6 +111,12 @@ class Portfolio(models.Model):
     def suggested_cash_change_amount(self) -> Decimal:
         return self.suggested_cash_change_percentage * self.total_value
 
+    @property
+    def budget(self) -> Decimal:
+        if not self.active_version:
+            return Decimal("0")
+        return self.active_version.start_budget
+
     @cached_property
     def cash_budget_delta(self) -> Decimal:
         def iterate_budget_delta():
@@ -203,6 +209,12 @@ class PortfolioVersion(models.Model):
     started_at = models.DateTimeField(blank=True, null=True, editable=False)
     ended_at = models.DateTimeField(blank=True, null=True, editable=False)
 
+    shares = models.PositiveIntegerField(default=10000, blank=True, null=True)
+
+    confidence_shift_percentage = models.PositiveIntegerField(
+        default=20, blank=True, null=True
+    )
+
     start_cash = models.DecimalField(
         max_digits=32,
         decimal_places=8,
@@ -218,6 +230,12 @@ class PortfolioVersion(models.Model):
         null=True,
         editable=False,
     )
+
+    @property
+    def current_shares(self) -> int:
+        if self.shares is None:
+            return self.portfolio.shares
+        return self.shares
 
     @cached_property
     def current_cash(self) -> Decimal:
@@ -290,6 +308,113 @@ class PortfolioVersion(models.Model):
         if self.change is None or self.start_value is None:
             return None
         return self.change / self.start_value
+
+    @cached_property
+    def all_confidence(self) -> list[Decimal]:
+        def iterate_confidence():
+            for fund_version in self.fund_versions.all():
+                yield fund_version.confidence_percentage
+
+        return list(iterate_confidence())
+
+    @cached_property
+    def total_confidence(self) -> Decimal:
+        return Decimal(
+            sum(self.all_confidence),
+        )
+
+    @cached_property
+    def portfolio_confidence_percentage(self) -> Decimal:
+        return self.total_confidence / len(self.all_confidence)
+
+    @property
+    def cash_confidence_percentage(self) -> Decimal:
+        return Decimal("1") - self.portfolio_confidence_percentage
+
+    @property
+    def cash_shares(self) -> int:
+        return self.current_shares - self.position_shares
+
+    @property
+    def cash_budget(self) -> Decimal:
+        return Decimal(self.cash_shares / self.current_shares) * self.start_budget
+
+    @property
+    def position_budget(self) -> Decimal:
+        return Decimal(1 - self.cash_shares / self.current_shares) * self.start_budget
+
+    @cached_property
+    def suggested_portfolio_shares(self) -> int:
+        def iterate_shares():
+            for fund_version in self.fund_versions.all():
+                yield fund_version.suggested_portfolio_shares
+
+        return sum(iterate_shares())
+
+    @property
+    def suggested_portfolio_change_shares(self) -> int:
+        return self.suggested_portfolio_shares - self.position_shares
+
+    @property
+    def suggested_portfolio_change_percentage(self) -> Decimal:
+        return Decimal(self.suggested_portfolio_change_shares) / self.position_shares
+
+    @property
+    def suggested_portfolio_change_value(self) -> Decimal:
+        return self.suggested_portfolio_change_percentage * self.start_budget
+
+    @property
+    def suggested_cash_shares(self) -> int:
+        return self.current_shares - self.suggested_portfolio_shares
+
+    @property
+    def suggested_cash_change_shares(self) -> int:
+        return self.suggested_cash_shares - self.cash_shares
+
+    @property
+    def suggested_cash_change_percentage(self) -> Decimal:
+        return Decimal(self.suggested_cash_change_shares) / self.cash_shares
+
+    @property
+    def suggested_cash_change_amount(self) -> Decimal:
+        return self.suggested_cash_change_percentage * self.start_budget
+
+    @cached_property
+    def position_shares(self) -> int:
+        return sum(v.portfolio_shares for v in self.fund_versions.all())
+
+    @property
+    def current_confidence_shift_percentage(self) -> int:
+        if self.confidence_shift_percentage is not None:
+            return self.confidence_shift_percentage
+        return self.portfolio.confidence_shift_percentage
+
+    @property
+    def unmodified_suggested_cash_shares(self) -> int:
+        shares = cast(int, self.shares)
+        total_shares = int(self.cash_confidence_percentage * shares)
+        confidence_change = int(
+            (total_shares - self.cash_shares)
+            * (Decimal(self.current_confidence_shift_percentage) / 100)
+        )
+        return max(confidence_change, -self.cash_shares) + self.cash_shares
+
+    @cached_property
+    def unmodified_portfolio_shares(self) -> int:
+        def iterate_shares():
+            yield self.unmodified_suggested_cash_shares
+            for fund_version in self.fund_versions.all():
+                yield fund_version.unmodified_portfolio_shares
+
+        return sum(iterate_shares())
+
+    @cached_property
+    def cash_budget_delta(self) -> Decimal:
+        def iterate_budget_delta():
+            for fund_version in self.fund_versions.all():
+                yield fund_version.budget_delta
+
+        return -1 * Decimal(sum(iterate_budget_delta()))
 
 
 class PortfolioWeek(models.Model):
