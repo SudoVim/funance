@@ -4,6 +4,7 @@ from decimal import Decimal
 import pytz
 from django.db.models import prefetch_related_objects
 
+from django_helpers.prefetch import prefetch
 from funds.funds import activate, create_new_version
 from funds.models import FundVersion
 from funds.portfolio.models import Portfolio, PortfolioVersion
@@ -34,20 +35,19 @@ def reset_shares_to_value(self: Portfolio) -> None:
         fund.active_version.save()
 
 
-def apply_suggestions(self: Portfolio) -> None:
+def apply_suggestions(self: PortfolioVersion) -> None:
     prefetch_related_objects(
         [self],
-        *(Portfolio.Prefetch.AvailableCash | Portfolio.Prefetch.PositionValue),
+        *(
+            prefetch("portfolio", Portfolio.Prefetch.AvailableCash)
+            | prefetch("fund_versions", FundVersion.Prefetch.PositionValue)
+        ),
     )
 
     def iterate_versions():
-        for fund in self.funds.all():
-            if fund.active_version is None:
-                continue
-            fund.active_version.portfolio_shares = (
-                fund.active_version.suggested_portfolio_shares
-            )
-            yield fund.active_version
+        for fund_version in self.fund_versions.all():
+            fund_version.portfolio_shares = fund_version.suggested_portfolio_shares
+            yield fund_version
 
     _ = FundVersion.objects.bulk_update(
         iterate_versions(),
@@ -55,7 +55,7 @@ def apply_suggestions(self: Portfolio) -> None:
     )
 
 
-def create_new_versions(self: Portfolio) -> None:
+def create_new_versions(self: Portfolio) -> PortfolioVersion:
     prefetch_related_objects(
         [self],
         *(Portfolio.Prefetch.AvailableCash | Portfolio.Prefetch.PositionValue),
@@ -66,6 +66,8 @@ def create_new_versions(self: Portfolio) -> None:
         parent=self.active_version,
         active=True,
         started_at=now,
+        shares=self.shares,
+        confidence_shift_percentage=self.confidence_shift_percentage,
     )
     for fund in self.funds.all():
         if not fund.active_version:
@@ -93,6 +95,7 @@ def create_new_versions(self: Portfolio) -> None:
 
     self.active_version = new_portfolio_version
     self.save(update_fields=["active_version"])
+    return new_portfolio_version
 
 
 def update_version_start_value(version: PortfolioVersion, save: bool = True) -> None:

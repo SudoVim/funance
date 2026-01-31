@@ -35,6 +35,7 @@ class HoldingAccountInline(DHModelTabularInline[HoldingAccount]):
     fields = (
         "name",
         "number",
+        "available_cash|dollars",
     )
     readonly_fields = fields
     extra = 0
@@ -94,30 +95,29 @@ class FundInline(DHModelTabularInline[Fund]):
 class PortfolioAdmin(DHModelAdmin[Portfolio]):
     inlines = (
         HoldingAccountInline,
-        FundInline,
+        # FundInline,
     )
     readonly_fields = (
         "total_value|dollars",
-        "portfolio_confidence_percentage|percent",
-        "cash_confidence_percentage|percent",
         "available_cash|dollars",
+        "position_value|dollars",
+        # "portfolio_confidence_percentage|percent",
+        # "cash_confidence_percentage|percent",
         "cash_percent|percent",
         "cash_shares|number",
-        "suggested_cash_shares|number",
-        "suggested_cash_change_percentage|percent",
-        "suggested_cash_change_amount|dollars",
-        "cash_budget_delta|dollars",
-        "position_value|dollars",
+        # "suggested_cash_shares|number",
+        # "suggested_cash_change_percentage|percent",
+        # "suggested_cash_change_amount|dollars",
+        # "cash_budget_delta|dollars",
         "performance",
         "links",
         "action_buttons",
     )
     change_actions = (
         "update_tickers",
-        "reset_shares_to_value",
-        "create_new_versions",
-        "apply_portfolio_suggestions",
         "sync_performance",
+        "create_new_versions",
+        "reset_shares_to_value",
     )
 
     @override
@@ -211,8 +211,8 @@ class PortfolioAdmin(DHModelAdmin[Portfolio]):
                 level="ERROR",
             )
             return self.redirect_referrer(request)
-        create_new_versions(obj)
-        return self.redirect_referrer(request)
+        new_portfolio_version = create_new_versions(obj)
+        return self.redirect_change_model(new_portfolio_version)
 
     def sync_performance(self, request: HttpRequest, pk: Any) -> HttpResponse:
         obj = self.get_object(request, pk)
@@ -225,21 +225,6 @@ class PortfolioAdmin(DHModelAdmin[Portfolio]):
             return self.redirect_referrer(request)
 
         sync_performance_weeks.delay(obj)
-        return self.redirect_referrer(request)
-
-    def apply_portfolio_suggestions(
-        self, request: HttpRequest, pk: Any
-    ) -> HttpResponse:
-        obj = self.get_object(request, pk)
-        if not obj:
-            self.message_user(
-                request,
-                "Object not found.",
-                level="ERROR",
-            )
-            return self.redirect_referrer(request)
-
-        apply_suggestions(obj)
         return self.redirect_referrer(request)
 
 
@@ -316,29 +301,74 @@ class FundVersionInline(DHModelTabularInline[FundVersion]):
         "fund",
         "start_value|dollars",
         "current_value|dollars",
-        "end_value|dollars",
+        "budget|dollars",
+        "budget_percent|percent",
         "change_percent|percent",
         "change|dollars",
+        "portfolio_shares",
+        "portfolio_modifier",
+        "confidence_percentage|percent",
+        "suggested_portfolio_change",
+        "suggested_portfolio_change_percent|percent",
+        "suggested_portfolio_change_value|dollars",
+        "total_change|dollars",
     )
-    readonly_fields = fields
+    readonly_fields = (
+        "fund",
+        "start_value|dollars",
+        "current_value|dollars",
+        "budget|dollars",
+        "budget_percent|percent",
+        "change_percent|percent",
+        "change|dollars",
+        "confidence_percentage|percent",
+        "suggested_portfolio_change",
+        "suggested_portfolio_change_percent|percent",
+        "suggested_portfolio_change_value|dollars",
+        "total_change|dollars",
+    )
     extra = 0
+    show_change_link = True
 
     @override
     def get_queryset(self, request: HttpRequest) -> QuerySet[FundVersion]:
-        return super().get_queryset(request).order_by("-start_value")
+        return (
+            super()
+            .get_queryset(request)
+            .order_by("-start_value")
+            .prefetch_related(
+                *(
+                    FundVersion.Prefetch.PositionValue
+                    | FundVersion.Prefetch.PositionPercentage
+                    | prefetch(
+                        "portfolio_version",
+                        prefetch("portfolio", Portfolio.Prefetch.AvailableCash)
+                        | prefetch(
+                            "fund_versions",
+                            FundVersion.Prefetch.PositionValue
+                            | FundVersion.Prefetch.PositionPercentage,
+                        ),
+                    )
+                )
+            )
+        )
 
     def current_value(self, obj: FundVersion) -> Decimal:
         return obj.position_value
 
-    def change_percent(self, obj: FundVersion) -> Decimal | None:
-        if obj.start_value is None:
-            return None
-        return obj.position_value / obj.start_value - 1
+    def budget_percent(self, obj: FundVersion) -> Decimal:
+        if obj.portfolio_version is None:
+            return Decimal("0")
+        return obj.budget / obj.portfolio_version.start_budget
+
+    def change_percent(self, obj: FundVersion) -> Decimal:
+        return obj.budget_delta_percent
 
     def change(self, obj: FundVersion) -> Decimal | None:
-        if obj.start_value is None:
-            return None
-        return obj.position_value - obj.start_value
+        return obj.budget_delta
+
+    def total_change(self, obj: FundVersion) -> Decimal:
+        return obj.budget_delta + obj.suggested_portfolio_change_value
 
 
 @admin.register(PortfolioVersion)
@@ -346,10 +376,12 @@ class PortfolioVersionAdmin(DHModelAdmin[PortfolioVersion]):
     list_display = (
         "created_at",
         "portfolio",
+        "started_at",
+        "ended_at",
         "active",
         "start_value|dollars",
         "end_value|dollars",
-        "change|dollars",
+        "change_value|dollars",
         "change_percent|percent",
     )
     readonly_fields = (
@@ -361,10 +393,13 @@ class PortfolioVersionAdmin(DHModelAdmin[PortfolioVersion]):
         "started_at",
         "ended_at",
         "values",
+        "fund_values",
+        "change",
+        "per_share|dollars",
         "links",
         "action_buttons",
     )
-    change_actions = ("update_end_value",)
+    change_actions = ("apply_portfolio_suggestions",)
     inlines = (FundVersionInline,)
 
     @override
@@ -375,7 +410,11 @@ class PortfolioVersionAdmin(DHModelAdmin[PortfolioVersion]):
             .prefetch_related(
                 *(
                     prefetch("portfolio", Portfolio.Prefetch.AvailableCash)
-                    | prefetch("fund_versions", FundVersion.Prefetch.PositionValue)
+                    | prefetch(
+                        "fund_versions",
+                        FundVersion.Prefetch.PositionValue
+                        | FundVersion.Prefetch.PositionPercentage,
+                    )
                 )
             )
         )
@@ -427,6 +466,103 @@ class PortfolioVersionAdmin(DHModelAdmin[PortfolioVersion]):
             list(iterate_rows()),
         )
 
+    def fund_values(self, obj: PortfolioVersion) -> str:
+        def iterate_fund_row(fund_version: FundVersion):
+            yield fund_version.fund.name
+            yield format_dollars(fund_version.start_value)
+
+            current_value = fund_version.end_value or fund_version.position_value
+            yield format_dollars(current_value)
+
+            if fund_version.end_value is None:
+                yield "--"
+            else:
+                yield format_dollars(fund_version.start_value)
+
+            if fund_version.start_value is None:
+                yield "--"
+                yield "--"
+            else:
+                yield format_percent(current_value / fund_version.start_value - 1)
+                yield format_dollars(current_value - fund_version.start_value)
+
+        def iterate_rows():
+            fund_versions = obj.fund_versions.order_by("-start_value")
+            for fund_version in fund_versions.all():
+                yield list(iterate_fund_row(fund_version))
+
+        return self.generate_table(
+            [
+                "Fund",
+                "Start",
+                "Current",
+                "End",
+                "Change %",
+                "Change $",
+            ],
+            list(iterate_rows()),
+        )
+
+    def change(self, obj: PortfolioVersion) -> str:
+        def iterate_rows():
+            yield [
+                "Cash",
+                format_dollars(obj.start_cash),
+                format_dollars(obj.current_cash),
+                format_percent(obj.current_cash / obj.current_budget),
+                format_dollars(obj.cash_budget),
+                format_percent(obj.cash_budget / obj.current_cash - 1),
+                format_dollars(obj.cash_budget - obj.current_cash),
+                format_percent(1 - obj.portfolio_confidence_percentage),
+                format_percent(obj.suggested_cash_change_percentage),
+                format_dollars(obj.suggested_cash_change_amount),
+                format_dollars(
+                    obj.cash_budget
+                    - obj.current_cash
+                    + obj.suggested_cash_change_amount
+                ),
+            ]
+            yield [
+                "Positions",
+                format_dollars(obj.start_value),
+                format_dollars(obj.current_value),
+                format_percent(obj.current_value / obj.current_budget),
+                format_dollars(obj.position_budget),
+                format_percent(obj.position_budget / obj.current_value - 1),
+                format_dollars(obj.position_budget - obj.current_value),
+                format_percent(obj.portfolio_confidence_percentage),
+                format_percent(obj.suggested_portfolio_change_percentage),
+                format_dollars(obj.suggested_portfolio_change_value),
+                format_dollars(
+                    obj.position_budget
+                    - obj.current_value
+                    + obj.suggested_portfolio_change_value
+                ),
+            ]
+
+        return self.generate_table(
+            [
+                "Type",
+                "Start",
+                "Value",
+                "Value %",
+                "Budget",
+                "Change %",
+                "Change $",
+                "Confidence",
+                "Sugg. Ch %",
+                "Sugg. Ch $",
+                "Total Ch $",
+            ],
+            list(iterate_rows()),
+        )
+
+    def change_value(self, obj: PortfolioVersion) -> Decimal | None:
+        return obj.change
+
+    def per_share(self, obj: PortfolioVersion) -> Decimal:
+        return obj.start_budget / obj.current_shares
+
     def links(self, obj: PortfolioVersion) -> str:
         def iterate_links():
             yield [
@@ -446,6 +582,21 @@ class PortfolioVersionAdmin(DHModelAdmin[PortfolioVersion]):
             "{}",
             list(iterate_links()),
         )
+
+    def apply_portfolio_suggestions(
+        self, request: HttpRequest, pk: Any
+    ) -> HttpResponse:
+        obj = self.get_object(request, pk)
+        if not obj:
+            self.message_user(
+                request,
+                "Object not found.",
+                level="ERROR",
+            )
+            return self.redirect_referrer(request)
+
+        apply_suggestions(obj)
+        return self.redirect_referrer(request)
 
     def update_end_value(self, request: HttpRequest, pk: Any) -> HttpResponse:
         obj = self.get_object(request, pk)

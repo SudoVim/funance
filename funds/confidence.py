@@ -107,6 +107,8 @@ class ConfidenceList(Sequence[Confidence]):
 
     @property
     def confidence(self) -> Decimal:
+        if not self.max_confidence_shares:
+            return Decimal("0")
         return self.confidence_shares / self.max_confidence_shares
 
     @override

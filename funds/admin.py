@@ -9,6 +9,7 @@ from typing_extensions import override
 import funds.portfolio.admin  # pyright: ignore[reportUnusedImport]
 from django_helpers.admin import DHModelAdmin, DHModelTabularInline
 from django_helpers.links import get_admin_list_url
+from django_helpers.prefetch import prefetch
 from funds.funds import (
     activate,
     allocate_from_position,
@@ -17,6 +18,7 @@ from funds.funds import (
     reset_portfolio_to_value,
 )
 from funds.models import Fund, FundVersion, FundVersionAllocation
+from funds.portfolio.models import Portfolio
 
 
 @admin.register(Fund)
@@ -129,6 +131,7 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
         "budget|dollars",
         "budget_delta|dollars",
         "budget_delta_percent|percent",
+        "share_value|dollars",
         "position_value|dollars",
         "confidence_percentage|percent",
         "remaining_shares",
@@ -156,6 +159,7 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
         "budget|dollars",
         "budget_delta|dollars",
         "budget_delta_percent|percent",
+        "share_value|dollars",
         "position_value|dollars",
         "confidence_percentage|percent",
         "remaining_shares",
@@ -188,6 +192,15 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
                     | FundVersion.Prefetch.PositionValue
                     | FundVersion.Prefetch.PortfolioValue
                     | FundVersion.Prefetch.PortfolioPercentage
+                    | prefetch(
+                        "portfolio_version",
+                        prefetch("portfolio", Portfolio.Prefetch.AvailableCash)
+                        | prefetch(
+                            "fund_versions",
+                            FundVersion.Prefetch.PositionValue
+                            | FundVersion.Prefetch.PositionPercentage,
+                        ),
+                    )
                 )
             )
         )
