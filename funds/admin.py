@@ -154,7 +154,7 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
     )
     readonly_fields = (
         "parent",
-        "portfolio_version",
+        # "portfolio_version",
         "active",
         "budget|dollars",
         "budget_delta|dollars",

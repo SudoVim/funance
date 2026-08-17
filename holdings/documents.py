@@ -28,7 +28,7 @@ class DocumentParser:
             return self._contents
 
         with self.document.document.open() as fobj:
-            self._contents = fobj.read().decode()
+            self._contents = fobj.read().decode().lstrip("\ufeff")
 
         assert self._contents is not None
         return self._contents

@@ -143,7 +143,7 @@ def sync_performance_weeks(self: Portfolio) -> None:
         date = date - datetime.timedelta(days=date.weekday())
 
     today = datetime.date.today()
-    while date < today:
+    while date <= today:
         week, created = self.weeks.get_or_create(date=date)
         if created or (today - date).days < 14:
             sync_performance_week.delay(week)
