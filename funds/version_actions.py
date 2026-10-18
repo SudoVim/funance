@@ -45,10 +45,6 @@ def _apply_version_actions(fund_version: FundVersion) -> None:
     )
     fund_version.save(update_fields=["portfolio_shares", "updated_at"])
 
-    fund_share_value = fund_version.budget / fund_version.shares
-    if fund_share_value is None:
-        raise AssertionError("Share value is $0")
-
     # Next, we can figure out which positions need their shares adjusted
     # because of an explicit hold, sell, buy operation.
     for allocation in fund_version.allocations.all():

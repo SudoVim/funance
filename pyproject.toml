@@ -1,51 +1,55 @@
-[tool.poetry]
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13.0"]
+build-backend = "uv_build"
+
+[project]
 name = "funance"
 version = "0.1.0"
+requires-python = ">=3.14,<3.15"
 description = ""
 authors = ["Michael Renken <michaelarenken@gmail.com>"]
 readme = "README.md"
+dependencies = [
+    "django<6,>=5",
+    "djangorestframework<4,>=3.13.1",
+    "django-cors-headers<4,>=3.13.0",
+    "celery<6,>=5.2.7",
+    "python-dateutil<3,>=2.8.2",
+    "elasticsearch<9,>=8.13.1",
+    "pandas>=3.0.6,<4",
+    "pandas-datareader<0.11,>=0.10.0",
+    "django-rest-knox<5,>=4.2.0",
+    "yfinance<0.3,>=0.2.38",
+    "python-dotenv<2,>=1.0.1",
+    "psycopg[binary]>=3.3.6,<4",
+    "psycopg-pool>=3.3.3,<4",
+    "dateparser>=1.2.1,<2",
+    "django-stubs-ext>=5.1.3,<6",
+    "django-rq>=3.0.0,<4",
+    "rq-scheduler>=0.14.0,<0.15",
+    "django-redis>=5.4.0,<6",
+    ]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-django = "<6,>=5"
-djangorestframework = "<4,>=3.13.1"
-django-cors-headers = "<4,>=3.13.0"
-celery = "<6,>=5.2.7"
-python-dateutil = "<3,>=2.8.2"
-elasticsearch = "<9,>=8.13.1"
-numpy = "<2,>=1.23.0"
-pandas = "<2,>=1.4.3"
-pandas-datareader = "<0.11,>=0.10.0"
-django-rest-knox = "<5,>=4.2.0"
-yfinance = "<0.3,>=0.2.38"
-python-dotenv = "<2,>=1.0.1"
-psycopg2 = "<3,>=2.9.9"
-dateparser = "^1.2.1"
-django-stubs-ext = "^5.1.3"
-django-rq = "^3.0.0"
-rq-scheduler = "^0.14.0"
-django-redis = "^5.4.0"
+[dependency-groups]
+dev = [
+    "black<23,>=22.6.0",
+    "pip-check-updates<0.24,>=0.23.0",
+    "mypy<2,>=1.10.0",
+    "types-pytz",
+    "ruff>=0.9.10,<0.10",
+    "basedpyright>=1.10.2,<2",
+    "djangorestframework-types",
+    "django-types",
+    "tblib>=3.0.0,<4",
+    "factory-boy>=3.3.3,<4",
+    ]
 
-
-[tool.poetry.group.dev.dependencies]
-black = ">=22.6.0,<27"
-pip-check-updates = "<0.24,>=0.23.0"
-mypy = "<2,>=1.10.0"
-types-pytz = "*"
-ruff = "^0.9.10"
-basedpyright = "^1.10.2"
-djangorestframework-types = "*"
-django-types = "*"
-tblib = "^3.0.0"
-factory-boy = "^3.3.3"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.uv]
+package = false
+default-groups = "all"
 
 [tool.ruff]
 exclude = [".git", ".venv", "migrations", "funance_data", "subs"]
-
 
 [tool.ruff.lint]
 ignore = [
