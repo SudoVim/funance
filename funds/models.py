@@ -1,4 +1,6 @@
+import datetime
 import uuid
+from collections.abc import Sequence
 from decimal import Decimal
 from functools import cached_property
 from typing import TYPE_CHECKING
@@ -17,6 +19,7 @@ from funds.prefetch import (
 
 if TYPE_CHECKING:
     from accounts.models import Account
+    from holdings.models import HoldingAccountPosition, HoldingAccountSale
     from tickers.models import Ticker
 
 
@@ -377,7 +380,7 @@ class FundVersionAllocation(models.Model):
     monthly_confidence = models.PositiveIntegerField(default=0)
     quarterly_confidence = models.PositiveIntegerField(default=0)
 
-    modifier = models.IntegerField(default=100)
+    modifier = models.IntegerField(default=100, editable=False)
 
     #: Total number of shares allocated to this ticker
     shares = models.PositiveIntegerField(default=0)
@@ -396,6 +399,21 @@ class FundVersionAllocation(models.Model):
         null=True,
     )
 
+    class VersionAction(models.TextChoices):
+        FLOAT = "FLOAT"
+        HOLD = "HOLD"
+        SELL_REALLOCATE_SHARES = "SELL_REALLOCATE_SHARES"
+        SELL_REMOVE_SHARES = "SELL_REMOVE_SHARES"
+        BUY = "BUY"
+
+    version_action = models.CharField(
+        max_length=32,
+        choices=VersionAction.choices,
+        default=VersionAction.FLOAT,
+    )
+
+    modify_shares = models.PositiveIntegerField(default=0)
+
     Prefetch = FuncVersionAllocationPrefetch
 
     class Meta:
@@ -405,17 +423,37 @@ class FundVersionAllocation(models.Model):
         )
 
     @cached_property
-    def position_value(self) -> Decimal:
-        def iterate_accounts():
+    def positions(self) -> "Sequence[HoldingAccountPosition]":
+        def iterate_positions():
             if self.version.fund.portfolio is None:
                 return
             for holding_account in self.version.fund.portfolio.holding_accounts.all():
                 position = holding_account.positions_by_ticker.get(self.ticker.symbol)
-                if not position or not position.value:
+                if position is None:
+                    continue
+                yield position
+
+        return list(iterate_positions())
+
+    @cached_property
+    def position_shares(self) -> int:
+        def iterate_positions():
+            for position in self.positions:
+                if position.quantity is None:
+                    continue
+                yield position.quantity
+
+        return int(sum(iterate_positions()))
+
+    @cached_property
+    def position_value(self) -> Decimal:
+        def iterate_positions():
+            for position in self.positions:
+                if position.value is None:
                     continue
                 yield position.value
 
-        return Decimal(sum(iterate_accounts()))
+        return Decimal(sum(iterate_positions()))
 
     @property
     def position_percentage(self) -> Decimal:
@@ -458,6 +496,12 @@ class FundVersionAllocation(models.Model):
         return self.confidence.confidence_shares
 
     @property
+    def position_confidence_percentage(self) -> Decimal:
+        if self.confidence.max_confidence_shares == 0:
+            return Decimal("0")
+        return self.confidence_shares / self.confidence.max_confidence_shares
+
+    @property
     def confidence_percentage(self) -> Decimal:
         if self.version.confidence_shares == 0:
             return Decimal("0")
@@ -498,3 +542,26 @@ class FundVersionAllocation(models.Model):
     @property
     def suggested_change(self) -> Decimal:
         return self.suggested_change_percent * self.budget
+
+    @cached_property
+    def latest_sale(self) -> "HoldingAccountSale | None":
+        latest_sale = None
+        for position in self.positions:
+            position_latest_sale = position.sales.order_by("-sale_date").first()
+            if position_latest_sale is None:
+                continue
+
+            if (
+                latest_sale is None
+                or position_latest_sale.sale_date > latest_sale.sale_date
+            ):
+                latest_sale = position_latest_sale
+                continue
+
+        return latest_sale
+
+    @property
+    def latest_sale_date(self) -> datetime.date | None:
+        if self.latest_sale is None:
+            return None
+        return self.latest_sale.sale_date

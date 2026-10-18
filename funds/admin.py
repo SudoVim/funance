@@ -11,14 +11,18 @@ from django_helpers.admin import DHModelAdmin, DHModelTabularInline
 from django_helpers.links import get_admin_list_url
 from django_helpers.prefetch import prefetch
 from funds.funds import (
-    activate,
     allocate_from_position,
-    apply_suggestions,
     create_new_version,
     reset_portfolio_to_value,
 )
 from funds.models import Fund, FundVersion, FundVersionAllocation
 from funds.portfolio.models import Portfolio
+from funds.version_actions import apply_version_actions
+from holdings.models import (
+    HoldingAccountAction,
+    HoldingAccountGeneration,
+    HoldingAccountSale,
+)
 
 
 @admin.register(Fund)
@@ -77,27 +81,25 @@ class FundVersionAllocationInline(DHModelTabularInline[FundVersionAllocation]):
         "weekly_confidence",
         "monthly_confidence",
         "quarterly_confidence",
+        "position_confidence_percentage|percent",
         "position_value|dollars",
         "position_percentage|percent",
-        "modifier",
         "shares",
-        "suggested_shares|number",
-        "suggested_change_percent|percent",
-        "suggested_change|dollars",
         "budget|dollars",
         "budget_delta|dollars",
         "budget_delta_shares",
+        "version_action",
+        "modify_shares",
     )
     readonly_fields = (
         "position_value|dollars",
         "position_percentage|percent",
-        "suggested_shares|number",
-        "suggested_change_percent|percent",
-        "suggested_change|dollars",
+        "position_confidence_percentage|percent",
         "budget|dollars",
         "budget_delta|dollars",
         "budget_delta_shares",
     )
+    show_change_link = True
 
     @override
     def get_queryset(self, request: HttpRequest) -> QuerySet[FundVersionAllocation]:
@@ -147,10 +149,8 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
     )
     change_actions = (
         "allocate_from_positions",
-        "create_new_version",
         "reset_portfolio_to_value",
-        "apply_suggestions",
-        "activate",
+        "apply_version_actions",
     )
     readonly_fields = (
         "parent",
@@ -255,7 +255,7 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
         reset_portfolio_to_value(obj)
         return self.redirect_referrer(request)
 
-    def apply_suggestions(self, request: HttpRequest, pk: Any) -> HttpResponse:
+    def apply_version_actions(self, request: HttpRequest, pk: Any) -> HttpResponse:
         obj = self.get_object(request, pk)
         if not obj:
             self.message_user(
@@ -264,19 +264,7 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
                 level="ERROR",
             )
             return self.redirect_referrer(request)
-        apply_suggestions(obj)
-        return self.redirect_referrer(request)
-
-    def activate(self, request: HttpRequest, pk: Any) -> HttpResponse:
-        obj = self.get_object(request, pk)
-        if not obj:
-            self.message_user(
-                request,
-                "Object not found.",
-                level="ERROR",
-            )
-            return self.redirect_referrer(request)
-        activate(obj)
+        apply_version_actions(obj)
         return self.redirect_referrer(request)
 
     @override
@@ -290,3 +278,69 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
             )
             obj.fund.active_version = obj  # pyright: ignore[reportAttributeAccessIssue]
             obj.fund.save()
+
+
+@admin.register(FundVersionAllocation)
+class FundVersionAllocationAdmin(DHModelAdmin[FundVersionAllocation]):
+    readonly_fields = (
+        "version",
+        "ticker",
+        "position_value|dollars",
+        "position_percentage|percent",
+        "position_confidence_percentage|percent",
+        "budget|dollars",
+        "budget_delta|dollars",
+        "budget_delta_shares",
+        "start_value|dollars",
+        "end_value|dollars",
+        "latest_sale_date",
+        "links",
+    )
+
+    def links(self, obj: FundVersionAllocation) -> str:
+        return format_html_join(
+            " | ",
+            "{}",
+            [
+                [
+                    self.generate_link(
+                        get_admin_list_url(
+                            HoldingAccountAction,
+                            {"position__ticker__symbol": obj.ticker.pk},
+                        ),
+                        "Actions",
+                    )
+                ],
+                [
+                    self.generate_link(
+                        get_admin_list_url(
+                            HoldingAccountAction,
+                            {
+                                "position__ticker__symbol": obj.ticker.pk,
+                                "has_remaining_quantity__exact": "1",
+                                "o": "1",
+                            },
+                        ),
+                        "Available",
+                    )
+                ],
+                [
+                    self.generate_link(
+                        get_admin_list_url(
+                            HoldingAccountSale,
+                            {"position__ticker__symbol": obj.ticker.pk},
+                        ),
+                        "Sales",
+                    )
+                ],
+                [
+                    self.generate_link(
+                        get_admin_list_url(
+                            HoldingAccountGeneration,
+                            {"position__ticker__symbol": obj.ticker.pk},
+                        ),
+                        "Generations",
+                    )
+                ],
+            ],
+        )
