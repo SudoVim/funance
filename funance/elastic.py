@@ -17,7 +17,7 @@ def client():
     if not hasattr(app_local, "global_elastic_client"):
         # TODO: This information needs to be configurable. I'm only using the
         # default host/auth here.
-        app_local.global_elastic_client = elasticsearch.Elasticsearch(  # pyright: ignore[reportArgumentType]
+        app_local.global_elastic_client = elasticsearch.Elasticsearch(
             [settings.ELASTICSEARCH_URL],
             http_auth=(
                 settings.ELASTICSEARCH_USERNAME,
