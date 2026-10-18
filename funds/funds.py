@@ -94,6 +94,8 @@ def create_new_version(
                 modifier=allocation.modifier,
                 shares=allocation.shares,
                 start_value=allocation.end_value,
+                version_action=allocation.version_action,
+                modify_shares=allocation.modify_shares,
             )
 
     _ = FundVersionAllocation.objects.bulk_create(iterate_new_allocations())
