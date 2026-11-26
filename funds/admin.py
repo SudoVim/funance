@@ -3,7 +3,7 @@ from typing import Any
 from django.contrib import admin
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
-from django.utils.html import format_html_join
+from django.utils.html import format_html, format_html_join
 from typing_extensions import override
 
 import funds.portfolio.admin  # pyright: ignore[reportUnusedImport]
@@ -11,7 +11,12 @@ from django_helpers.admin import DHModelAdmin, DHModelTabularInline
 from django_helpers.admin_filters import format_dollars, format_percent
 from django_helpers.links import get_admin_list_url
 from django_helpers.prefetch import prefetch
-from funds.analytics import allocation_performance
+from funds.analytics import (
+    allocation_changes,
+    allocation_performance,
+    format_when,
+    version_return,
+)
 from funds.funds import (
     allocate_from_position,
     create_new_version,
@@ -156,6 +161,7 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
         "gain_loss|dollars",
         "return_since_start|percent",
         "allocation_performance",
+        "compared_to_parent",
         "action_buttons",
     )
     change_actions = (
@@ -183,6 +189,7 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
         "gain_loss|dollars",
         "return_since_start|percent",
         "allocation_performance",
+        "compared_to_parent",
         "action_buttons",
     )
     list_display = (
@@ -219,7 +226,8 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
                             | FundVersion.Prefetch.PositionPercentage,
                         ),
                     )
-                )
+                ),
+                "parent__allocations__ticker",
             )
         )
 
@@ -345,6 +353,73 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
                 "Drift",
             ],
             iterate_rows(),
+        )
+
+    def compared_to_parent(self, obj: FundVersion | None) -> str:
+        if obj is None or obj.pk is None:
+            return "--"
+        changes = allocation_changes(obj)
+        if changes is None or obj.parent is None:
+            return "No previous version."
+
+        def iterate_summary():
+            for label, version in (
+                ("Previous", obj.parent),
+                ("This version", obj),
+            ):
+                if version is None:
+                    continue
+                summary = version_return(version)
+                yield [
+                    label,
+                    format_when(summary.started_at),
+                    format_dollars(summary.start_value),
+                    format_dollars(summary.current_value),
+                    format_dollars(summary.gain_loss),
+                    format_percent(summary.return_since_start),
+                ]
+
+        def iterate_changes():
+            for change in changes:
+                yield [
+                    change.symbol,
+                    change.previous_shares,
+                    change.shares,
+                    change.share_change,
+                    format_percent(change.previous_weight),
+                    format_percent(change.weight),
+                    format_percent(change.weight_change),
+                    format_percent(change.previous_return),
+                    format_percent(change.return_since_start),
+                ]
+
+        return format_html(
+            "{}<br><br>{}",
+            self.generate_table(
+                [
+                    "Version",
+                    "Started",
+                    "Start",
+                    "Current",
+                    "Gain loss",
+                    "Return since start",
+                ],
+                iterate_summary(),
+            ),
+            self.generate_table(
+                [
+                    "Ticker",
+                    "Prev shares",
+                    "Shares",
+                    "Share change",
+                    "Prev weight",
+                    "Weight",
+                    "Weight change",
+                    "Prev return",
+                    "Return",
+                ],
+                iterate_changes(),
+            ),
         )
 
 
