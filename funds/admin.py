@@ -8,8 +8,10 @@ from typing_extensions import override
 
 import funds.portfolio.admin  # pyright: ignore[reportUnusedImport]
 from django_helpers.admin import DHModelAdmin, DHModelTabularInline
+from django_helpers.admin_filters import format_dollars, format_percent
 from django_helpers.links import get_admin_list_url
 from django_helpers.prefetch import prefetch
+from funds.analytics import allocation_performance
 from funds.funds import (
     allocate_from_position,
     create_new_version,
@@ -150,6 +152,10 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
         "suggested_portfolio_change_value|dollars",
         "shares",
         "confidence_shift_percentage",
+        "current_value|dollars",
+        "gain_loss|dollars",
+        "return_since_start|percent",
+        "allocation_performance",
         "action_buttons",
     )
     change_actions = (
@@ -173,6 +179,10 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
         "suggested_portfolio_change|number",
         "suggested_portfolio_change_percent|percent",
         "suggested_portfolio_change_value|dollars",
+        "current_value|dollars",
+        "gain_loss|dollars",
+        "return_since_start|percent",
+        "allocation_performance",
         "action_buttons",
     )
     list_display = (
@@ -184,6 +194,8 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
         "end_value|dollars",
         "change|dollars",
         "change_percent|percent",
+        "gain_loss|dollars",
+        "return_since_start|percent",
     )
 
     @override
@@ -299,6 +311,42 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
             obj.fund.active_version = obj  # pyright: ignore[reportAttributeAccessIssue]
             obj.fund.save()
 
+    def allocation_performance(self, obj: FundVersion | None) -> str:
+        if obj is None or obj.pk is None:
+            return "--"
+        rows = allocation_performance(obj)
+        if len(rows) == 0:
+            return "No allocations."
+
+        def iterate_rows():
+            for row in rows:
+                yield [
+                    row.symbol,
+                    format_dollars(row.start_value),
+                    format_dollars(row.current_value),
+                    format_dollars(row.gain_loss),
+                    format_percent(row.return_since_start),
+                    format_percent(row.contribution),
+                    format_percent(row.target_weight),
+                    format_percent(row.actual_weight),
+                    format_percent(row.drift),
+                ]
+
+        return self.generate_table(
+            [
+                "Ticker",
+                "Start",
+                "Current",
+                "Gain loss",
+                "Return since start",
+                "Contribution",
+                "Target weight",
+                "Actual weight",
+                "Drift",
+            ],
+            iterate_rows(),
+        )
+
 
 @admin.register(FundVersionAllocation)
 class FundVersionAllocationAdmin(DHModelAdmin[FundVersionAllocation]):
@@ -313,6 +361,13 @@ class FundVersionAllocationAdmin(DHModelAdmin[FundVersionAllocation]):
         "budget_delta_shares",
         "start_value|dollars",
         "end_value|dollars",
+        "current_value|dollars",
+        "gain_loss|dollars",
+        "return_since_start|percent",
+        "contribution|percent",
+        "target_weight|percent",
+        "actual_weight|percent",
+        "drift|percent",
         "latest_sale_date",
         "links",
     )
