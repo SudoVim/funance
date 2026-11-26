@@ -24,8 +24,9 @@ class Migration(migrations.Migration):
                     ("ADD", "Add"),
                     ("REMOVE", "Remove"),
                 ],
-                default="",
+                default=None,
                 max_length=32,
+                null=True,
             ),
         ),
     ]

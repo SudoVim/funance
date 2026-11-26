@@ -182,12 +182,13 @@ class FundVersion(models.Model):
         ADD = "ADD"
         REMOVE = "REMOVE"
 
-    #: Preselected portfolio-share action. Blank until one is chosen.
+    #: Preselected portfolio-share action. None until one is chosen.
     version_action = models.CharField(
         max_length=32,
         choices=VersionAction.choices,
         blank=True,
-        default="",
+        null=True,
+        default=None,
     )
 
     #: Portfolio shares to add or remove when the action is applied.

@@ -9,7 +9,7 @@ def apply_portfolio_share_action(fund_version: FundVersion) -> None:
     """
     Add or remove portfolio shares on the given *fund_version*.
 
-    This does not apply allocation actions. A blank action leaves portfolio
+    This does not apply allocation actions. A missing action leaves portfolio
     shares unchanged.
     """
     match fund_version.version_action:
