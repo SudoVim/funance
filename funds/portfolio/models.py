@@ -309,6 +309,27 @@ class PortfolioVersion(models.Model):
             return None
         return self.change / self.start_value
 
+    @property
+    def gain_loss(self) -> Decimal | None:
+        """
+        Change in cash plus positions since this version started.
+
+        None until a start cash or start value snapshot exists. Unlike
+        :attr:`change`, this includes cash and uses the live total while the
+        version is still active. A missing cash or value snapshot counts as
+        zero, matching :attr:`start_budget`.
+        """
+        if self.start_cash is None and self.start_value is None:
+            return None
+        return self.current_budget - self.start_budget
+
+    @property
+    def return_since_start(self) -> Decimal | None:
+        """Gain or loss divided by starting cash plus starting positions."""
+        if self.gain_loss is None or self.start_budget == 0:
+            return None
+        return self.gain_loss / self.start_budget
+
     @cached_property
     def all_confidence(self) -> list[Decimal]:
         def iterate_confidence():

@@ -12,6 +12,11 @@ from django_helpers.admin import DHModelAdmin, DHModelTabularInline
 from django_helpers.admin_filters import format_dollars, format_percent
 from django_helpers.links import get_admin_change_url, get_admin_list_url
 from django_helpers.prefetch import prefetch
+from funds.analytics import (
+    format_when,
+    portfolio_contributions,
+    portfolio_value_history,
+)
 from funds.models import Fund, FundVersion
 from funds.portfolio.models import Portfolio, PortfolioVersion, PortfolioWeek
 from funds.portfolio.performance import sync_performance_weeks
@@ -110,6 +115,7 @@ class PortfolioAdmin(DHModelAdmin[Portfolio]):
         # "suggested_cash_change_amount|dollars",
         # "cash_budget_delta|dollars",
         "performance",
+        "value_history",
         "links",
         "action_buttons",
     )
@@ -132,6 +138,38 @@ class PortfolioAdmin(DHModelAdmin[Portfolio]):
                     | Portfolio.Prefetch.PositionPercentage
                 )
             )
+        )
+
+    def value_history(self, obj: Portfolio | None) -> str:
+        if obj is None or obj.pk is None:
+            return "--"
+        versions = portfolio_value_history(obj)
+        if len(versions) == 0:
+            return "No portfolio versions."
+
+        def iterate_rows():
+            for version in versions:
+                yield [
+                    format_when(version.started_at),
+                    format_when(version.ended_at),
+                    "Yes" if version.active else "No",
+                    format_dollars(version.start_budget),
+                    format_dollars(version.current_budget),
+                    format_dollars(version.gain_loss),
+                    format_percent(version.return_since_start),
+                ]
+
+        return self.generate_table(
+            [
+                "Started",
+                "Ended",
+                "Active",
+                "Start",
+                "Value",
+                "Gain loss",
+                "Return since start",
+            ],
+            iterate_rows(),
         )
 
     def performance(self, obj: Portfolio) -> str:
@@ -383,6 +421,8 @@ class PortfolioVersionAdmin(DHModelAdmin[PortfolioVersion]):
         "end_value|dollars",
         "change_value|dollars",
         "change_percent|percent",
+        "gain_loss|dollars",
+        "return_since_start|percent",
     )
     readonly_fields = (
         "created_at",
@@ -394,7 +434,10 @@ class PortfolioVersionAdmin(DHModelAdmin[PortfolioVersion]):
         "ended_at",
         "values",
         "fund_values",
+        "fund_performance",
         "change",
+        "gain_loss|dollars",
+        "return_since_start|percent",
         "per_share|dollars",
         "links",
         "action_buttons",
@@ -501,6 +544,33 @@ class PortfolioVersionAdmin(DHModelAdmin[PortfolioVersion]):
                 "Change $",
             ],
             list(iterate_rows()),
+        )
+
+    def fund_performance(self, obj: PortfolioVersion | None) -> str:
+        if obj is None or obj.pk is None:
+            return "--"
+
+        def iterate_rows():
+            for row in portfolio_contributions(obj):
+                yield [
+                    row.name,
+                    format_dollars(row.start_value),
+                    format_dollars(row.current_value),
+                    format_dollars(row.gain_loss),
+                    format_percent(row.return_since_start),
+                    format_percent(row.contribution),
+                ]
+
+        return self.generate_table(
+            [
+                "Name",
+                "Start",
+                "Current",
+                "Gain loss",
+                "Return since start",
+                "Contribution",
+            ],
+            iterate_rows(),
         )
 
     def change(self, obj: PortfolioVersion) -> str:
