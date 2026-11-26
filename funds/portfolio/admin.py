@@ -12,6 +12,7 @@ from django_helpers.admin import DHModelAdmin, DHModelTabularInline
 from django_helpers.admin_filters import format_dollars, format_percent
 from django_helpers.links import get_admin_change_url, get_admin_list_url
 from django_helpers.prefetch import prefetch
+from funds.analytics import portfolio_contributions
 from funds.models import Fund, FundVersion
 from funds.portfolio.models import Portfolio, PortfolioVersion, PortfolioWeek
 from funds.portfolio.performance import sync_performance_weeks
@@ -237,6 +238,7 @@ class PortfolioWeekAdmin(DHModelAdmin[PortfolioWeek]):
         "sale_interest|percent",
         "generation_profit|dollars",
         "total_profit|dollars",
+        "week_return|percent",
         "net_cost_basis|dollars",
     )
     readonly_fields = ("links",)
@@ -385,6 +387,8 @@ class PortfolioVersionAdmin(DHModelAdmin[PortfolioVersion]):
         "end_value|dollars",
         "change_value|dollars",
         "change_percent|percent",
+        "gain_loss|dollars",
+        "return_since_start|percent",
     )
     readonly_fields = (
         "created_at",
@@ -396,7 +400,10 @@ class PortfolioVersionAdmin(DHModelAdmin[PortfolioVersion]):
         "ended_at",
         "values",
         "fund_values",
+        "fund_performance",
         "change",
+        "gain_loss|dollars",
+        "return_since_start|percent",
         "per_share|dollars",
         "links",
         "action_buttons",
@@ -503,6 +510,33 @@ class PortfolioVersionAdmin(DHModelAdmin[PortfolioVersion]):
                 "Change $",
             ],
             list(iterate_rows()),
+        )
+
+    def fund_performance(self, obj: PortfolioVersion | None) -> str:
+        if obj is None or obj.pk is None:
+            return "--"
+
+        def iterate_rows():
+            for row in portfolio_contributions(obj):
+                yield [
+                    row.name,
+                    format_dollars(row.start_value),
+                    format_dollars(row.current_value),
+                    format_dollars(row.gain_loss),
+                    format_percent(row.return_since_start),
+                    format_percent(row.contribution),
+                ]
+
+        return self.generate_table(
+            [
+                "Name",
+                "Start",
+                "Current",
+                "Gain loss",
+                "Return since start",
+                "Contribution",
+            ],
+            iterate_rows(),
         )
 
     def change(self, obj: PortfolioVersion) -> str:
