@@ -160,7 +160,12 @@ class Position(Pythonable["PositionDict"], Copyable):
         determine the ratio of the resulting split.
         """
         new_quantity = self.quantity + new_shares
-        proportion = new_quantity / self.quantity
+        if self.quantity != 0:
+            proportion = new_quantity / self.quantity
+
+        else:
+            proportion = Decimal("1")
+
         self.quantity = new_quantity
         self.actions = self.actions.add_split(self.symbol, proportion)
         self.available_purchases = self.available_purchases.add_split(
