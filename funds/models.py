@@ -178,6 +178,22 @@ class FundVersion(models.Model):
         null=True,
     )
 
+    class VersionAction(models.TextChoices):
+        FLOAT = "FLOAT"
+        HOLD = "HOLD"
+        SELL_REMOVE_SHARES = "SELL_REMOVE_SHARES"
+        BUY = "BUY"
+
+    #: Preselected action for this version's portfolio shares.
+    version_action = models.CharField(
+        max_length=32,
+        choices=VersionAction.choices,
+        default=VersionAction.FLOAT,
+    )
+
+    #: Portfolio shares to add or remove when the action is applied.
+    modify_shares = models.PositiveIntegerField(default=0)
+
     allocations: QuerySet["FundVersionAllocation"]  # pyright: ignore[reportUninitializedInstanceVariable]
     children: QuerySet["FundVersion"]  # pyright: ignore[reportUninitializedInstanceVariable]
 

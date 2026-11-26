@@ -139,6 +139,8 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
         "remaining_shares",
         "portfolio_modifier",
         "portfolio_shares",
+        "version_action",
+        "modify_shares",
         "suggested_portfolio_shares|number",
         "suggested_portfolio_change|number",
         "suggested_portfolio_change_percent|percent",

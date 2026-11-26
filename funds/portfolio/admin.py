@@ -306,6 +306,8 @@ class FundVersionInline(DHModelTabularInline[FundVersion]):
         "change_percent|percent",
         "change|dollars",
         "portfolio_shares",
+        "version_action",
+        "modify_shares",
         "portfolio_modifier",
         "confidence_percentage|percent",
         "suggested_portfolio_change",
