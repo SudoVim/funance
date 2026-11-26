@@ -19,13 +19,12 @@ class Migration(migrations.Migration):
             model_name="fundversion",
             name="version_action",
             field=models.CharField(
+                blank=True,
                 choices=[
-                    ("FLOAT", "Float"),
-                    ("HOLD", "Hold"),
-                    ("SELL_REMOVE_SHARES", "Sell Remove Shares"),
-                    ("BUY", "Buy"),
+                    ("ADD", "Add"),
+                    ("REMOVE", "Remove"),
                 ],
-                default="FLOAT",
+                default="",
                 max_length=32,
             ),
         ),

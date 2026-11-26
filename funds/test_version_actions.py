@@ -8,7 +8,10 @@ from funds.funds import create_new_version
 from funds.models import Fund, FundVersion, FundVersionAllocation
 from funds.portfolio.admin import FundVersionInline
 from funds.portfolio.models import Portfolio, PortfolioVersion
-from funds.version_actions import apply_version_actions
+from funds.version_actions import (
+    apply_portfolio_share_action,
+    apply_version_actions,
+)
 from holdings.models import HoldingAccount, HoldingAccountPosition
 from tickers.models import Ticker
 
@@ -92,9 +95,10 @@ class VersionActionTestCase(TestCase):
 
 
 class ApplyVersionActionsTests(VersionActionTestCase):
-    def test_float_derives_portfolio_shares_from_allocation_buy(self) -> None:
+    def test_allocation_actions_ignore_portfolio_share_action(self) -> None:
+        self.fund_version.version_action = FundVersion.VersionAction.ADD
         self.fund_version.modify_shares = 999
-        self.fund_version.save(update_fields=["modify_shares"])
+        self.fund_version.save(update_fields=["version_action", "modify_shares"])
 
         apply_version_actions(self.fund_version)
 
@@ -126,67 +130,6 @@ class ApplyVersionActionsTests(VersionActionTestCase):
         self.assertEqual(1000, self.fund_version.portfolio_shares)
         self.assertEqual({"AAPL": 500, "MSFT": 500}, self.shares_by_symbol())
 
-    def test_buy_adds_modify_shares_and_still_applies_allocations(self) -> None:
-        self.fund_version.version_action = FundVersion.VersionAction.BUY
-        self.fund_version.modify_shares = 50
-        self.fund_version.save(update_fields=["version_action", "modify_shares"])
-
-        apply_version_actions(self.fund_version)
-
-        self.fund_version.refresh_from_db()
-        self.assertEqual(1050, self.fund_version.portfolio_shares)
-        self.assertEqual({"AAPL": 667, "MSFT": 333}, self.shares_by_symbol())
-
-    def test_buy_with_zero_modify_shares_still_applies_allocations(self) -> None:
-        self.fund_version.version_action = FundVersion.VersionAction.BUY
-        self.fund_version.modify_shares = 0
-        self.fund_version.save(update_fields=["version_action", "modify_shares"])
-
-        apply_version_actions(self.fund_version)
-
-        self.fund_version.refresh_from_db()
-        self.assertEqual(1000, self.fund_version.portfolio_shares)
-        self.assertEqual({"AAPL": 700, "MSFT": 300}, self.shares_by_symbol())
-
-    def test_sell_remove_subtracts_modify_shares(self) -> None:
-        self.fund_version.version_action = FundVersion.VersionAction.SELL_REMOVE_SHARES
-        self.fund_version.modify_shares = 200
-        self.fund_version.save(update_fields=["version_action", "modify_shares"])
-
-        apply_version_actions(self.fund_version)
-
-        self.fund_version.refresh_from_db()
-        self.assertEqual(800, self.fund_version.portfolio_shares)
-        self.assertEqual({"AAPL": 875, "MSFT": 125}, self.shares_by_symbol())
-
-    def test_sell_remove_clamps_at_zero_and_leaves_allocations(self) -> None:
-        self.fund_version.version_action = FundVersion.VersionAction.SELL_REMOVE_SHARES
-        self.fund_version.modify_shares = 250
-        self.fund_version.portfolio_shares = 100
-        self.fund_version.save(
-            update_fields=["version_action", "modify_shares", "portfolio_shares"]
-        )
-
-        apply_version_actions(self.fund_version)
-
-        self.fund_version.refresh_from_db()
-        self.assertEqual(0, self.fund_version.portfolio_shares)
-        self.assertEqual({"AAPL": 200, "MSFT": 800}, self.shares_by_symbol())
-
-    def test_hold_allocates_from_positions(self) -> None:
-        self.fund_version.version_action = FundVersion.VersionAction.HOLD
-        self.fund_version.modify_shares = 50
-        self.fund_version.portfolio_version = None
-        self.fund_version.save(
-            update_fields=["version_action", "modify_shares", "portfolio_version"]
-        )
-
-        apply_version_actions(self.fund_version)
-
-        self.fund_version.refresh_from_db()
-        self.assertEqual(1000, self.fund_version.portfolio_shares)
-        self.assertEqual({"AAPL": 750, "MSFT": 250}, self.shares_by_symbol())
-
     def test_float_requires_portfolio_version(self) -> None:
         self.fund_version.portfolio_version = None
         self.fund_version.save(update_fields=["portfolio_version"])
@@ -200,35 +143,69 @@ class ApplyVersionActionsTests(VersionActionTestCase):
         self.fund_version.refresh_from_db()
         self.assertEqual(1000, self.fund_version.portfolio_shares)
 
-    def test_buy_requires_portfolio_version(self) -> None:
-        self.fund_version.version_action = FundVersion.VersionAction.BUY
+
+class ApplyPortfolioShareActionTests(VersionActionTestCase):
+    def test_add_changes_portfolio_shares_only(self) -> None:
+        self.fund_version.version_action = FundVersion.VersionAction.ADD
         self.fund_version.modify_shares = 50
         self.fund_version.portfolio_version = None
         self.fund_version.save(
             update_fields=["version_action", "modify_shares", "portfolio_version"]
         )
 
-        with self.assertRaisesMessage(
-            AssertionError,
-            "No portfolio version for fund version",
-        ):
-            apply_version_actions(self.fund_version)
+        apply_portfolio_share_action(self.fund_version)
 
         self.fund_version.refresh_from_db()
+        self.assertEqual(1050, self.fund_version.portfolio_shares)
+        self.assertEqual({"AAPL": 200, "MSFT": 800}, self.shares_by_symbol())
+
+    def test_remove_subtracts_portfolio_shares_only(self) -> None:
+        self.fund_version.version_action = FundVersion.VersionAction.REMOVE
+        self.fund_version.modify_shares = 200
+        self.fund_version.save(update_fields=["version_action", "modify_shares"])
+
+        apply_portfolio_share_action(self.fund_version)
+
+        self.fund_version.refresh_from_db()
+        self.assertEqual(800, self.fund_version.portfolio_shares)
+        self.assertEqual({"AAPL": 200, "MSFT": 800}, self.shares_by_symbol())
+
+    def test_remove_clamps_at_zero(self) -> None:
+        self.fund_version.version_action = FundVersion.VersionAction.REMOVE
+        self.fund_version.modify_shares = 250
+        self.fund_version.portfolio_shares = 100
+        self.fund_version.save(
+            update_fields=["version_action", "modify_shares", "portfolio_shares"]
+        )
+
+        apply_portfolio_share_action(self.fund_version)
+
+        self.fund_version.refresh_from_db()
+        self.assertEqual(0, self.fund_version.portfolio_shares)
+        self.assertEqual({"AAPL": 200, "MSFT": 800}, self.shares_by_symbol())
+
+    def test_blank_action_is_a_no_op(self) -> None:
+        self.fund_version.modify_shares = 50
+        self.fund_version.save(update_fields=["modify_shares"])
+
+        apply_portfolio_share_action(self.fund_version)
+
+        self.fund_version.refresh_from_db()
+        self.assertEqual("", self.fund_version.version_action)
         self.assertEqual(1000, self.fund_version.portfolio_shares)
         self.assertEqual({"AAPL": 200, "MSFT": 800}, self.shares_by_symbol())
 
 
 class CreateNewVersionTests(VersionActionTestCase):
     def test_copies_preselected_action(self) -> None:
-        self.fund_version.version_action = FundVersion.VersionAction.SELL_REMOVE_SHARES
+        self.fund_version.version_action = FundVersion.VersionAction.REMOVE
         self.fund_version.modify_shares = 42
         self.fund_version.save(update_fields=["version_action", "modify_shares"])
 
         new_version = create_new_version(self.fund_version)
 
         self.assertEqual(
-            FundVersion.VersionAction.SELL_REMOVE_SHARES,
+            FundVersion.VersionAction.REMOVE,
             new_version.version_action,
         )
         self.assertEqual(42, new_version.modify_shares)
@@ -252,3 +229,8 @@ class VersionActionAdminTests(TestCase):
         self.assertIn("modify_shares", FundVersionInline.fields)
         self.assertNotIn("version_action", FundVersionInline.readonly_fields)
         self.assertNotIn("modify_shares", FundVersionInline.readonly_fields)
+        self.assertIn(
+            "apply_portfolio_share_action",
+            FundVersionAdmin.change_actions,
+        )
+        self.assertIn("apply_version_actions", FundVersionAdmin.change_actions)

@@ -179,16 +179,15 @@ class FundVersion(models.Model):
     )
 
     class VersionAction(models.TextChoices):
-        FLOAT = "FLOAT"
-        HOLD = "HOLD"
-        SELL_REMOVE_SHARES = "SELL_REMOVE_SHARES"
-        BUY = "BUY"
+        ADD = "ADD"
+        REMOVE = "REMOVE"
 
-    #: Preselected action for this version's portfolio shares.
+    #: Preselected portfolio-share action. Blank until one is chosen.
     version_action = models.CharField(
         max_length=32,
         choices=VersionAction.choices,
-        default=VersionAction.FLOAT,
+        blank=True,
+        default="",
     )
 
     #: Portfolio shares to add or remove when the action is applied.
