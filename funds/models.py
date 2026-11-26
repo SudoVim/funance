@@ -178,22 +178,6 @@ class FundVersion(models.Model):
         null=True,
     )
 
-    class VersionAction(models.TextChoices):
-        ADD = "ADD"
-        REMOVE = "REMOVE"
-
-    #: Preselected portfolio-share action. None until one is chosen.
-    version_action = models.CharField(
-        max_length=32,
-        choices=VersionAction.choices,
-        blank=True,
-        null=True,
-        default=None,
-    )
-
-    #: Portfolio shares to add or remove when the action is applied.
-    modify_shares = models.PositiveIntegerField(default=0)
-
     allocations: QuerySet["FundVersionAllocation"]  # pyright: ignore[reportUninitializedInstanceVariable]
     children: QuerySet["FundVersion"]  # pyright: ignore[reportUninitializedInstanceVariable]
 
@@ -359,6 +343,35 @@ class FundVersion(models.Model):
         if self.start_value is None or self.change is None:
             return None
         return self.change / self.start_value
+
+    @property
+    def current_value(self) -> Decimal:
+        """
+        End value once this version is closed, otherwise the live position value.
+        """
+        if self.end_value is not None:
+            return self.end_value
+        return self.position_value
+
+    @property
+    def gain_loss(self) -> Decimal | None:
+        """
+        Market value now minus the start snapshot.
+
+        None when no start value was stored. Buys and sells during the version
+        are included, because both sides are position market values.
+        """
+        if self.start_value is None:
+            return None
+        return self.current_value - self.start_value
+
+    @property
+    def return_since_start(self) -> Decimal | None:
+        """Gain or loss divided by the starting market value."""
+        start_value = self.start_value
+        if self.gain_loss is None or start_value is None or start_value == 0:
+            return None
+        return self.gain_loss / start_value
 
     @override
     def __str__(self) -> str:
@@ -581,3 +594,63 @@ class FundVersionAllocation(models.Model):
         if self.latest_sale is None:
             return None
         return self.latest_sale.sale_date
+
+    @property
+    def current_value(self) -> Decimal:
+        """
+        End value once this allocation is closed, otherwise the live position
+        value.
+        """
+        if self.end_value is not None:
+            return self.end_value
+        return self.position_value
+
+    @property
+    def gain_loss(self) -> Decimal | None:
+        """Market value now minus this allocation's start snapshot."""
+        if self.start_value is None:
+            return None
+        return self.current_value - self.start_value
+
+    @property
+    def return_since_start(self) -> Decimal | None:
+        """Gain or loss divided by this allocation's starting market value."""
+        start_value = self.start_value
+        if self.gain_loss is None or start_value is None or start_value == 0:
+            return None
+        return self.gain_loss / start_value
+
+    @property
+    def contribution(self) -> Decimal | None:
+        """
+        Gain or loss as a fraction of the fund version's starting value.
+
+        Across allocations that have a start snapshot, contributions sum to
+        the fund's return since start.
+        """
+        if self.gain_loss is None:
+            return None
+        start_value = self.version.start_value
+        if start_value is None or start_value == 0:
+            return None
+        return self.gain_loss / start_value
+
+    @property
+    def target_weight(self) -> Decimal:
+        """Share of this fund version's shares assigned to the ticker."""
+        return self.budget_percentage
+
+    @property
+    def actual_weight(self) -> Decimal | None:
+        """Share of the fund version's current market value in this ticker."""
+        total = self.version.current_value
+        if total == 0:
+            return None
+        return self.current_value / total
+
+    @property
+    def drift(self) -> Decimal | None:
+        """Actual weight minus target weight."""
+        if self.actual_weight is None:
+            return None
+        return self.actual_weight - self.target_weight
