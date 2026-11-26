@@ -15,7 +15,7 @@ from decimal import Decimal
 from django.utils import timezone
 
 from funds.models import FundVersion, FundVersionAllocation
-from funds.portfolio.models import Portfolio, PortfolioVersion
+from funds.portfolio.models import PortfolioVersion
 
 
 @dataclass(frozen=True)
@@ -67,17 +67,6 @@ class ContributionRow:
     gain_loss: Decimal | None
     return_since_start: Decimal | None
     contribution: Decimal | None
-
-
-@dataclass(frozen=True)
-class PortfolioVersionReturn:
-    started_at: datetime.datetime | None
-    ended_at: datetime.datetime | None
-    active: bool
-    start_budget: Decimal
-    current_budget: Decimal
-    gain_loss: Decimal | None
-    return_since_start: Decimal | None
 
 
 def format_when(value: datetime.datetime | None) -> str:
@@ -194,29 +183,6 @@ def portfolio_contributions(version: PortfolioVersion) -> list[ContributionRow]:
         )
 
     return list(iterate_rows())
-
-
-def portfolio_value_history(portfolio: Portfolio) -> list[PortfolioVersionReturn]:
-    """
-    Portfolio value at each version, oldest first.
-
-    A closed version uses its stored end cash and end value. The active
-    version uses live cash and live fund position values.
-    """
-
-    def iterate_versions():
-        for version in portfolio.versions.order_by("created_at"):
-            yield PortfolioVersionReturn(
-                started_at=version.started_at or version.created_at,
-                ended_at=version.ended_at,
-                active=version.active,
-                start_budget=version.start_budget,
-                current_budget=version.current_budget,
-                gain_loss=version.gain_loss,
-                return_since_start=version.return_since_start,
-            )
-
-    return list(iterate_versions())
 
 
 def _allocation_performance(allocation: FundVersionAllocation) -> AllocationPerformance:

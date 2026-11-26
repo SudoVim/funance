@@ -41,26 +41,9 @@ class FundAdmin(DHModelAdmin[Fund]):
     change_actions = ("create_root_version",)
     readonly_fields = (
         "active_version",
-        "performance",
         "links",
         "action_buttons",
     )
-
-    def performance(self, obj: Fund | None) -> str:
-        if obj is None or obj.active_version is None:
-            return "No active version."
-        version = obj.active_version
-        return self.generate_table(
-            ["Start", "Current", "Gain loss", "Return since start"],
-            [
-                [
-                    format_dollars(version.start_value),
-                    format_dollars(version.current_value),
-                    format_dollars(version.gain_loss),
-                    format_percent(version.return_since_start),
-                ]
-            ],
-        )
 
     def links(self, obj: Fund):
         return format_html_join(
@@ -112,8 +95,6 @@ class FundVersionAllocationInline(DHModelTabularInline[FundVersionAllocation]):
         "budget|dollars",
         "budget_delta|dollars",
         "budget_delta_shares",
-        "return_since_start|percent",
-        "drift|percent",
         "version_action",
         "modify_shares",
     )
@@ -124,8 +105,6 @@ class FundVersionAllocationInline(DHModelTabularInline[FundVersionAllocation]):
         "budget|dollars",
         "budget_delta|dollars",
         "budget_delta_shares",
-        "return_since_start|percent",
-        "drift|percent",
     )
     show_change_link = True
 

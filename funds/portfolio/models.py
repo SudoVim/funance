@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, cast
 
 from django.db import models
 from django.db.models import QuerySet
+from django.utils import timezone
 from django.utils.functional import cached_property
 from typing_extensions import override
 
@@ -16,6 +17,21 @@ if TYPE_CHECKING:
     from accounts.models import Account
     from funds.models import Fund, FundVersion
     from funds.portfolio.performance import Performance
+
+
+def annualized_interest(
+    gain: Decimal | None, invested: Decimal | None, days: int
+) -> Decimal | None:
+    """
+    Gain divided by capital and by the fraction of a year.
+
+    A span of zero days is treated as one year so the rate stays finite, matching
+    sale interest.
+    """
+    if gain is None or invested is None or invested == 0 or days < 0:
+        return None
+    year_fraction = Decimal("1") if days == 0 else Decimal(days) / Decimal("365.25")
+    return gain / invested / year_fraction
 
 
 class Portfolio(models.Model):
@@ -330,6 +346,22 @@ class PortfolioVersion(models.Model):
             return None
         return self.gain_loss / self.start_budget
 
+    def days_open(self) -> int:
+        """Days from start through the end snapshot, or through now if open."""
+        start = self.started_at or self.created_at
+        end = self.ended_at or timezone.now()
+        return max((end - start).days, 0)
+
+    @property
+    def interest(self) -> Decimal | None:
+        """
+        Gain or loss divided by starting capital and by the fraction of a year
+        this version was open. Same shape as sale interest.
+        """
+        if self.start_cash is None and self.start_value is None:
+            return None
+        return annualized_interest(self.gain_loss, self.start_budget, self.days_open())
+
     @cached_property
     def all_confidence(self) -> list[Decimal]:
         def iterate_confidence():
@@ -482,6 +514,25 @@ class PortfolioWeek(models.Model):
         if self.sale_profit is None or self.generation_profit is None:
             return None
         return self.sale_profit + self.generation_profit
+
+    @property
+    def week_return(self) -> Decimal | None:
+        """Total profit divided by the week's net cost basis."""
+        if (
+            self.total_profit is None
+            or self.net_cost_basis is None
+            or self.net_cost_basis == 0
+        ):
+            return None
+        return self.total_profit / self.net_cost_basis
+
+    @property
+    def interest(self) -> Decimal | None:
+        """
+        Week return spread over a year. The week is 7 days and the capital is
+        that week's net cost basis.
+        """
+        return annualized_interest(self.total_profit, self.net_cost_basis, 7)
 
     class Meta:
         unique_together = (
