@@ -5,6 +5,25 @@ from django.db import transaction
 from funds.models import FundVersion, FundVersionAllocation
 
 
+def apply_portfolio_share_action(fund_version: FundVersion) -> None:
+    """
+    Add or remove portfolio shares on the given *fund_version*.
+
+    This does not apply allocation actions. A missing action leaves portfolio
+    shares unchanged.
+    """
+    match fund_version.version_action:
+        case FundVersion.VersionAction.ADD:
+            delta = fund_version.modify_shares
+        case FundVersion.VersionAction.REMOVE:
+            delta = -fund_version.modify_shares
+        case _:
+            return
+
+    fund_version.portfolio_shares = max(0, fund_version.portfolio_shares + delta)
+    fund_version.save(update_fields=["portfolio_shares", "updated_at"])
+
+
 def apply_version_actions(fund_version: FundVersion) -> None:
     """
     Apply all version actions for the given *fund_version*.

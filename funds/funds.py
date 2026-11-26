@@ -81,6 +81,8 @@ def create_new_version(
         confidence_shift_percentage=self.confidence_shift_percentage,
         shares=self.shares,
         portfolio_version=portfolio_version,
+        version_action=self.version_action,
+        modify_shares=self.modify_shares,
     )
 
     def iterate_new_allocations():

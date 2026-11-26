@@ -17,7 +17,10 @@ from funds.funds import (
 )
 from funds.models import Fund, FundVersion, FundVersionAllocation
 from funds.portfolio.models import Portfolio
-from funds.version_actions import apply_version_actions
+from funds.version_actions import (
+    apply_portfolio_share_action,
+    apply_version_actions,
+)
 from holdings.models import (
     HoldingAccountAction,
     HoldingAccountGeneration,
@@ -139,6 +142,8 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
         "remaining_shares",
         "portfolio_modifier",
         "portfolio_shares",
+        "version_action",
+        "modify_shares",
         "suggested_portfolio_shares|number",
         "suggested_portfolio_change|number",
         "suggested_portfolio_change_percent|percent",
@@ -150,6 +155,7 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
     change_actions = (
         "allocate_from_positions",
         "reset_portfolio_to_value",
+        "apply_portfolio_share_action",
         "apply_version_actions",
     )
     readonly_fields = (
@@ -253,6 +259,20 @@ class FundVersionAdmin(DHModelAdmin[FundVersion]):
             )
             return self.redirect_referrer(request)
         reset_portfolio_to_value(obj)
+        return self.redirect_referrer(request)
+
+    def apply_portfolio_share_action(
+        self, request: HttpRequest, pk: Any
+    ) -> HttpResponse:
+        obj = self.get_object(request, pk)
+        if not obj:
+            self.message_user(
+                request,
+                "Object not found.",
+                level="ERROR",
+            )
+            return self.redirect_referrer(request)
+        apply_portfolio_share_action(obj)
         return self.redirect_referrer(request)
 
     def apply_version_actions(self, request: HttpRequest, pk: Any) -> HttpResponse:
